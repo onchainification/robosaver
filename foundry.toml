@@ -6,6 +6,7 @@ solc = '0.8.24'
 remappings = [
     '@delay-module=lib/delay-module/contracts/',
     '@roles-module=lib/roles-module/packages/evm/contracts/',
+    '@oz=lib/oz//contracts/',
 ]
 
 [rpc_endpoints]
