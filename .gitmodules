@@ -1,0 +1,6 @@
+[submodule "lib/delay-module"]
+	path = lib/delay-module
+	url = https://github.com/gnosisguild/zodiac-modifier-delay.git
+[submodule "lib/roles-module"]
+	path = lib/roles-module
+	url = https://github.com/gnosisguild/zodiac-modifier-roles.git
