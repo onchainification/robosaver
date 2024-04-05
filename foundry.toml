@@ -7,3 +7,6 @@ remappings = [
     '@delay-module=lib/delay-module/contracts/',
     '@roles-module=lib/roles-module/packages/evm/contracts/',
 ]
+
+[rpc_endpoints]
+gnosis = "${GNOSIS_RPC_URL}"
