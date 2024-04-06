@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.4;
 
-interface Roles {
+interface IRolesModule {
     type ExecutionOptions is uint8;
     type Operation is uint8;
     type Operator is uint8;
