@@ -30,6 +30,7 @@ contract BaseFixture is Test {
 
     // roles config
     uint64 constant ALLOWANCE_PERIOD = 1 days;
+    bytes4 constant TRANSFER_SELECTOR = bytes4(keccak256(bytes("transfer(address,uint256)")));
 
     // bouncer config
     bytes4 constant SET_ALLOWANCE_SELECTOR =
