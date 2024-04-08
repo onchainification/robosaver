@@ -19,6 +19,7 @@ contract BaseFixture is Test {
     //////////////////////////////////////////////////////////////////////////*/
 
     uint256 constant EURE_TO_MINT = 1_000e18;
+    uint128 constant MIN_EURE_ALLOWANCE = 200e18;
 
     address constant GNOSIS_SAFE = 0xa4A4a4879dCD3289312884e9eC74Ed37f9a92a55;
     address constant SAFE_EOA_SIGNER = 0x1377aaE47bB2a62f54351Ec36bA6a5313FC5844c;
@@ -26,6 +27,9 @@ contract BaseFixture is Test {
     // delay config
     uint256 constant COOL_DOWN_PERIOD = 180; // 3 minutes
     uint256 constant EXPIRATION_PERIOD = 1800; // 30 minutes
+
+    // roles config
+    uint64 constant ALLOWANCE_PERIOD = 1 days;
 
     // bouncer config
     bytes4 constant SET_ALLOWANCE_SELECTOR =
@@ -72,6 +76,25 @@ contract BaseFixture is Test {
         vm.prank(GNOSIS_SAFE);
         safe.enableModule(address(rolesModule));
 
+        vm.prank(SAFE_EOA_SIGNER);
+        rolesModule.setAllowance(
+            SET_ALLOWANCE_KEY,
+            MIN_EURE_ALLOWANCE,
+            MIN_EURE_ALLOWANCE,
+            MIN_EURE_ALLOWANCE,
+            ALLOWANCE_PERIOD,
+            uint64(block.timestamp)
+        );
+
+        // @note is it neccesary for our setup: assign roles, scope target, scope function?
+
+        // @note pendant of wiring up a keeper service here at some point
+
+        vm.prank(SAFE_EOA_SIGNER);
+        rolesModule.transferOwnership(address(bouncerContract));
+
+        // @note pendant of hooking up a keeper service
+
         vm.prank(EUR_E_MINTER);
         IEURe(EUR_E).mintTo(GNOSIS_SAFE, EURE_TO_MINT);
 
@@ -81,19 +104,6 @@ contract BaseFixture is Test {
         vm.label(address(delayModule), "DELAY_MODULE");
         vm.label(address(bouncerContract), "BOUNCER_CONTRACT");
         vm.label(address(rolesModule), "ROLES_MODULE");
-    }
-
-    function _bouncerAndRoleSetup() internal {
-        // set allowances
-
-        // assign roles
-
-        // scope target
-
-        // scope function
-
-        // transfer ownership
-        vm.prank(SAFE_EOA_SIGNER);
-        rolesModule.transferOwnership(address(bouncerContract));
+        vm.label(address(roboModule), "ROBO_MODULE");
     }
 }
