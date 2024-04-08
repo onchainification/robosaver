@@ -56,7 +56,10 @@ contract BaseFixture is Test {
         safe = ISafe(payable(GNOSIS_SAFE));
 
         // module deployments to mirror gnosis pay setup: delay & roles
+        rolesModule = new Roles(SAFE_EOA_SIGNER, GNOSIS_SAFE, GNOSIS_SAFE);
         delayModule = new Delay(GNOSIS_SAFE, GNOSIS_SAFE, GNOSIS_SAFE, COOL_DOWN_PERIOD, EXPIRATION_PERIOD);
+
+        bouncerContract = new Bouncer(GNOSIS_SAFE, address(rolesModule), SET_ALLOWANCE_SELECTOR);
 
         roboModule = new RoboSaverModule(address(delayModule));
 
@@ -65,6 +68,9 @@ contract BaseFixture is Test {
 
         vm.prank(GNOSIS_SAFE);
         safe.enableModule(address(delayModule));
+
+        vm.prank(GNOSIS_SAFE);
+        safe.enableModule(address(rolesModule));
 
         vm.prank(EUR_E_MINTER);
         IEURe(EUR_E).mintTo(GNOSIS_SAFE, EURE_TO_MINT);
@@ -78,13 +84,6 @@ contract BaseFixture is Test {
     }
 
     function _bouncerAndRoleSetup() internal {
-        rolesModule = new Roles(SAFE_EOA_SIGNER, GNOSIS_SAFE, GNOSIS_SAFE);
-
-        vm.prank(GNOSIS_SAFE);
-        safe.enableModule(address(rolesModule));
-
-        bouncerContract = new Bouncer(GNOSIS_SAFE, address(rolesModule), SET_ALLOWANCE_SELECTOR);
-
         // set allowances
 
         // assign roles
