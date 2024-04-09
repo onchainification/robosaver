@@ -34,7 +34,7 @@ contract BaseFixture is Test {
     // bouncer config
     bytes4 constant SET_ALLOWANCE_SELECTOR =
         bytes4(keccak256(bytes("setAllowance(bytes32,uint128,uint128,uint128,uint64,uint64)"))); // 0xa8ec43ee
-    bytes32 constant SET_ALLOWANCE_KEY = keccak256(abi.encode(GNOSIS_SAFE));
+    bytes32 constant SET_ALLOWANCE_KEY = keccak256("SPENDING_ALLOWANCE");
 
     // tokens
     address constant EUR_E = 0xcB444e90D8198415266c6a2724b7900fb12FC56E;
