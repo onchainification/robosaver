@@ -10,3 +10,6 @@
 [submodule "lib/oz"]
 	path = lib/oz
 	url = https://github.com/Openzeppelin/openzeppelin-contracts
+[submodule "lib/account-kit"]
+	path = lib/account-kit
+	url = https://github.com/gnosispay/account-kit
