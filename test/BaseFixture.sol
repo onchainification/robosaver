@@ -3,14 +3,13 @@ pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
 
-import {Delay} from "delay-module/Delay.sol";
+import {Delay} from "@delay-module/Delay.sol";
 import {Roles} from "@roles-module/Roles.sol";
-
-import {Bouncer} from "../src/helpers/Bouncer.sol";
+import {Bouncer} from "@gnosispay-kit/Bouncer.sol";
 
 import {RoboSaverModule} from "../src/RoboSaverModule.sol";
 
-import {ISafe} from "../src/interfaces/safe/ISafe.sol";
+import {ISafe} from "@gnosispay-kit/interfaces/ISafe.sol";
 import {IEURe} from "../src/interfaces/eure/IEURe.sol";
 
 contract BaseFixture is Test {
