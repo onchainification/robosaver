@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 
 import {BaseFixture} from "./BaseFixture.sol";
 
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {IERC20} from "@gnosispay-kit/interfaces/IERC20.sol";
 
 import {Enum} from "../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 
