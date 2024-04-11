@@ -17,6 +17,8 @@ contract BaseFixture is Test {
                                    CONSTANTS
     //////////////////////////////////////////////////////////////////////////*/
 
+    address constant TOP_UP_AGENT = address(747834834);
+
     uint256 constant EURE_TO_MINT = 1_000e18;
     uint128 constant MIN_EURE_ALLOWANCE = 200e18;
 
@@ -65,7 +67,7 @@ contract BaseFixture is Test {
 
         bouncerContract = new Bouncer(GNOSIS_SAFE, address(rolesModule), SET_ALLOWANCE_SELECTOR);
 
-        roboModule = new RoboSaverModule(address(delayModule));
+        roboModule = new RoboSaverModule(address(delayModule), address(rolesModule), TOP_UP_AGENT);
 
         vm.prank(GNOSIS_SAFE);
         delayModule.enableModule(address(roboModule));
