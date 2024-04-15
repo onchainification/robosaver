@@ -68,18 +68,20 @@ contract RoboSaverVirtualModule {
             if (block.timestamp - txQueuedAt >= delayModule.txCooldown()) {
                 return (true, abi.encodeWithSelector(IDelayModifier.executeNextTx.selector));
             }
+
+            return (false, bytes("Tx cooldown not reached"));
+        } else {
+            uint256 balance = EUR_E.balanceOf(cachedAvatar);
+            (, uint128 maxRefill,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
+
+            // @note it will queue the tx for topup
+            if (balance < maxRefill) {
+                uint256 topupAmount = maxRefill - balance;
+                return (true, abi.encodeWithSelector(this.safeTopup.selector, cachedAvatar, topupAmount));
+            }
+
+            return (false, bytes("No queue tx and sufficient balance"));
         }
-
-        uint256 balance = EUR_E.balanceOf(cachedAvatar);
-        (, uint128 maxRefill,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
-
-        // @note it will queue the tx for topup
-        if (balance < maxRefill) {
-            uint256 topupAmount = maxRefill - balance;
-            return (true, abi.encodeWithSelector(this.safeTopup.selector, cachedAvatar, topupAmount));
-        }
-
-        return (false, bytes("No gnosispay to topup"));
     }
 
     function safeTopup(address _avatar, uint256 _topupAmount) external onlyTopupAgents {
