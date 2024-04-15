@@ -7,7 +7,7 @@ import {Delay} from "@delay-module/Delay.sol";
 import {Roles} from "@roles-module/Roles.sol";
 import {Bouncer} from "@gnosispay-kit/Bouncer.sol";
 
-import {RoboSaverModule} from "../src/RoboSaverModule.sol";
+import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
 
 import {ISafe} from "@gnosispay-kit/interfaces/ISafe.sol";
 import {IEURe} from "../src/interfaces/eure/IEURe.sol";
@@ -16,6 +16,8 @@ contract BaseFixture is Test {
     /*//////////////////////////////////////////////////////////////////////////
                                    CONSTANTS
     //////////////////////////////////////////////////////////////////////////*/
+
+    address constant TOP_UP_AGENT = address(747834834);
 
     uint256 constant EURE_TO_MINT = 1_000e18;
     uint128 constant MIN_EURE_ALLOWANCE = 200e18;
@@ -51,7 +53,7 @@ contract BaseFixture is Test {
     ISafe safe;
 
     // robosaver module
-    RoboSaverModule roboModule;
+    RoboSaverVirtualModule roboModule;
 
     function setUp() public virtual {
         // https://gnosisscan.io/block/33288902
@@ -65,7 +67,7 @@ contract BaseFixture is Test {
 
         bouncerContract = new Bouncer(GNOSIS_SAFE, address(rolesModule), SET_ALLOWANCE_SELECTOR);
 
-        roboModule = new RoboSaverModule(address(delayModule));
+        roboModule = new RoboSaverVirtualModule(address(delayModule), address(rolesModule), TOP_UP_AGENT);
 
         vm.prank(GNOSIS_SAFE);
         delayModule.enableModule(address(roboModule));
