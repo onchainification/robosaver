@@ -5,9 +5,9 @@ import {IERC20} from "@gnosispay-kit/interfaces/IERC20.sol";
 import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
 import {IDelayModifier} from "@gnosispay-kit/interfaces/IDelayModifier.sol";
 
-import {IRoboSaverModule} from "./interfaces/modules/IRoboSaverModule.sol";
+import {IRoboSaverVirtualModule} from "./interfaces/modules/IRoboSaverVirtualModule.sol";
 
-contract RoboSaverModule {
+contract RoboSaverVirtualModule {
     /*//////////////////////////////////////////////////////////////////////////
                                    CONSTANTS
     //////////////////////////////////////////////////////////////////////////*/
@@ -78,7 +78,7 @@ contract RoboSaverModule {
         // @note it will queue the tx for topup
         if (balance < maxRefill) {
             uint256 topupAmount = maxRefill - balance;
-            return (true, abi.encodeWithSelector(IRoboSaverModule.safeTopup.selector, cachedAvatar, topupAmount));
+            return (true, abi.encodeWithSelector(IRoboSaverVirtualModule.safeTopup.selector, cachedAvatar, topupAmount));
         }
 
         return (false, bytes("No gnosispay to topup"));
