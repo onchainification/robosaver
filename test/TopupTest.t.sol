@@ -13,19 +13,19 @@ contract TopupTest is BaseFixture {
 
         assertFalse(canExec);
 
-        uint256 eureBalance = IERC20(EUR_E).balanceOf(GNOSIS_SAFE);
+        uint256 eureBalance = IERC20(EURE).balanceOf(GNOSIS_SAFE);
 
         (, uint128 maxRefill,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
         uint256 tokenAmountTargetToMove = eureBalance - maxRefill + 1;
 
-        roboModule.transferErc20(EUR_E, tokenAmountTargetToMove, WETH);
+        roboModule.transferErc20(EURE, tokenAmountTargetToMove, WETH);
 
         vm.warp(block.timestamp + COOL_DOWN_PERIOD);
 
         bytes memory payload = abi.encodeWithSignature("transfer(address,uint256)", WETH, tokenAmountTargetToMove);
 
-        delayModule.executeNextTx(EUR_E, 0, payload, Enum.Operation.Call);
+        delayModule.executeNextTx(EURE, 0, payload, Enum.Operation.Call);
 
         (canExec, execPayload) = roboModule.checker();
 

@@ -7,6 +7,7 @@ remappings = [
     '@delay-module=lib/delay-module/contracts/',
     '@roles-module=lib/roles-module/packages/evm/contracts/',
     '@gnosispay-kit=lib/account-kit/contracts/',
+    '@balancer-v2=lib/balancer-v2-monorepo/pkg/',
 ]
 
 [rpc_endpoints]
