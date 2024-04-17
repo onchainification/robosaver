@@ -114,5 +114,7 @@ contract BaseFixture is Test {
         vm.label(address(bouncerContract), "BOUNCER_CONTRACT");
         vm.label(address(rolesModule), "ROLES_MODULE");
         vm.label(address(roboModule), "ROBO_MODULE");
+        vm.label(BPT_EURE_STEUR, "BPT_EURE_STEUR");
+        vm.label(address(roboModule.BALANCER_VAULT()), "BALANCER_VAULT");
     }
 }
