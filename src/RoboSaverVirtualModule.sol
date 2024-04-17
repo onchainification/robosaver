@@ -99,18 +99,19 @@ contract RoboSaverVirtualModule {
         returns (IVault.ExitPoolRequest memory request_)
     {
         /// @dev all asset (related) arrays should always follow this (alphabetical) order
-        IAsset[] memory assets = new IAsset[](2);
+        IAsset[] memory assets = new IAsset[](3);
         assets[0] = IAsset(address(STEUR));
-        assets[1] = IAsset(address(EURE));
+        assets[1] = IAsset(address(BPT_EURE_STEUR));
+        assets[2] = IAsset(address(EURE));
 
         /// TODO: https://docs.balancer.fi/reference/joins-and-exits/pool-exits.html#minamountsout
-        uint256[] memory minAmountsOut = new uint256[](2);
+        uint256[] memory minAmountsOut = new uint256[](3);
 
         /// ['uint256', 'uint256[]', 'uint256']
         /// [BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn]
         bytes memory userData = abi.encode(
             StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT,
-            [0, _topupAmount],
+            [0, 0, _topupAmount],
             BPT_EURE_STEUR.balanceOf(_avatar)
         );
 
