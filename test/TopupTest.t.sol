@@ -67,7 +67,7 @@ contract TopupTest is BaseFixture {
 
         (, uint128 maxRefill,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
-        tokenAmountTargetToMove_ = eureBalance - maxRefill + 1;
+        tokenAmountTargetToMove_ = eureBalance - maxRefill + 100e18;
 
         roboModule.transferErc20(EURE, tokenAmountTargetToMove_, WETH);
     }
