@@ -1,17 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import {IERC20} from "@gnosispay-kit/interfaces/IERC20.sol";
 import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
 import {IDelayModifier} from "@gnosispay-kit/interfaces/IDelayModifier.sol";
+import {IAsset} from "@balancer-v2/interfaces/contracts/vault/IAsset.sol";
+
+import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
+import "@balancer-v2/interfaces/contracts/pool-stable/StablePoolUserData.sol";
 
 contract RoboSaverVirtualModule {
     /*//////////////////////////////////////////////////////////////////////////
                                    CONSTANTS
     //////////////////////////////////////////////////////////////////////////*/
 
-    IERC20 constant EUR_E = IERC20(0xcB444e90D8198415266c6a2724b7900fb12FC56E);
+    IERC20 constant EURE = IERC20(0xcB444e90D8198415266c6a2724b7900fb12FC56E);
+    IERC20 constant STEUR = IERC20(0x004626A008B1aCdC4c74ab51644093b155e59A23);
+    IERC20 constant BPT_EURE_STEUR = IERC20(0x06135A9Ae830476d3a941baE9010B63732a055F4);
 
+    IVault public constant BALANCER_VAULT = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
+
+    bytes32 public constant BPT_EURE_STEUR_POOL_ID = 0x06135a9ae830476d3a941bae9010b63732a055f4000000000000000000000065;
     bytes32 constant SET_ALLOWANCE_KEY = keccak256("SPENDING_ALLOWANCE");
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -71,7 +79,7 @@ contract RoboSaverVirtualModule {
 
             return (false, bytes("Tx cooldown not reached"));
         } else {
-            uint256 balance = EUR_E.balanceOf(cachedAvatar);
+            uint256 balance = EURE.balanceOf(cachedAvatar);
             (, uint128 maxRefill,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
             // @note it will queue the tx for topup
@@ -84,8 +92,38 @@ contract RoboSaverVirtualModule {
         }
     }
 
-    function safeTopup(address _avatar, uint256 _topupAmount) external onlyTopupAgents {
-        // @note logic for top-up is to be defined <> amm
+    /// @notice siphon eure out of the bpt pool
+    function safeTopup(address _avatar, uint256 _topupAmount)
+        external
+        onlyTopupAgents
+        returns (IVault.ExitPoolRequest memory request_)
+    {
+        /// @dev all asset (related) arrays should always follow this (alphabetical) order
+        IAsset[] memory assets = new IAsset[](3);
+        assets[0] = IAsset(address(STEUR));
+        assets[1] = IAsset(address(BPT_EURE_STEUR));
+        assets[2] = IAsset(address(EURE));
+
+        /// allow for one wei of slippage
+        uint256[] memory minAmountsOut = new uint256[](3);
+        minAmountsOut[2] = _topupAmount - 1;
+
+        /// ['uint256', 'uint256[]', 'uint256']
+        /// [BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn]
+        uint256[] memory amountsOut = new uint256[](2);
+        amountsOut[1] = _topupAmount;
+        bytes memory userData = abi.encode(
+            StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, BPT_EURE_STEUR.balanceOf(_avatar)
+        );
+
+        request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
+
+        /// siphon eure out of pool
+        bytes memory payload = abi.encodeWithSelector(
+            IVault.exitPool.selector, BPT_EURE_STEUR_POOL_ID, _avatar, payable(_avatar), request_
+        );
+        delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, payload, 0);
+
         emit SafeTopup(_avatar, _topupAmount, block.timestamp);
     }
 

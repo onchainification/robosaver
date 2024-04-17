@@ -2,11 +2,12 @@
 src = "src"
 out = "out"
 libs = ["lib"]
-solc = '0.8.24'
+solc = '0.8.25'
 remappings = [
     '@delay-module=lib/delay-module/contracts/',
     '@roles-module=lib/roles-module/packages/evm/contracts/',
     '@gnosispay-kit=lib/account-kit/contracts/',
+    '@balancer-v2=lib/balancer-v2-monorepo/pkg/',
 ]
 
 [rpc_endpoints]

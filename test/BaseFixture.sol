@@ -7,6 +7,8 @@ import {Delay} from "@delay-module/Delay.sol";
 import {Roles} from "@roles-module/Roles.sol";
 import {Bouncer} from "@gnosispay-kit/Bouncer.sol";
 
+import {IERC20} from "@gnosispay-kit/interfaces/IERC20.sol";
+
 import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
 
 import {ISafe} from "@gnosispay-kit/interfaces/ISafe.sol";
@@ -39,10 +41,13 @@ contract BaseFixture is Test {
     bytes32 constant SET_ALLOWANCE_KEY = keccak256("SPENDING_ALLOWANCE");
 
     // tokens
-    address constant EUR_E = 0xcB444e90D8198415266c6a2724b7900fb12FC56E;
+    address constant EURE = 0xcB444e90D8198415266c6a2724b7900fb12FC56E;
     address constant WETH = 0x6A023CCd1ff6F2045C3309768eAd9E68F978f6e1;
+    address constant BPT_EURE_STEUR = 0x06135A9Ae830476d3a941baE9010B63732a055F4;
 
-    address constant EUR_E_MINTER = 0x882145B1F9764372125861727d7bE616c84010Ef;
+    address constant EURE_MINTER = 0x882145B1F9764372125861727d7bE616c84010Ef;
+
+    bytes4 constant SAFE_TOP_UP_SELECTOR = 0x476c6d74;
 
     // gnosis pay modules
     Delay delayModule;
@@ -56,8 +61,8 @@ contract BaseFixture is Test {
     RoboSaverVirtualModule roboModule;
 
     function setUp() public virtual {
-        // https://gnosisscan.io/block/33288902
-        vm.createSelectFork("gnosis", 33288902);
+        // https://gnosisscan.io/block/33487317
+        vm.createSelectFork("gnosis", 33487317);
 
         safe = ISafe(payable(GNOSIS_SAFE));
 
@@ -97,15 +102,19 @@ contract BaseFixture is Test {
 
         // @note pendant of hooking up a keeper service
 
-        vm.prank(EUR_E_MINTER);
-        IEURe(EUR_E).mintTo(GNOSIS_SAFE, EURE_TO_MINT);
+        vm.prank(EURE_MINTER);
+        IEURe(EURE).mintTo(GNOSIS_SAFE, EURE_TO_MINT);
 
-        vm.label(EUR_E, "EUR_E");
+        deal(BPT_EURE_STEUR, GNOSIS_SAFE, EURE_TO_MINT);
+
+        vm.label(EURE, "EURE");
         vm.label(WETH, "WETH");
         vm.label(GNOSIS_SAFE, "GNOSIS_SAFE");
         vm.label(address(delayModule), "DELAY_MODULE");
         vm.label(address(bouncerContract), "BOUNCER_CONTRACT");
         vm.label(address(rolesModule), "ROLES_MODULE");
         vm.label(address(roboModule), "ROBO_MODULE");
+        vm.label(BPT_EURE_STEUR, "BPT_EURE_STEUR");
+        vm.label(address(roboModule.BALANCER_VAULT()), "BALANCER_VAULT");
     }
 }

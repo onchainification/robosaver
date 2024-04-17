@@ -11,16 +11,16 @@ contract TransferErc20Test is BaseFixture {
     function test_transferErc20() public {
         uint256 tokenAmount = 1e18;
 
-        uint256 prevEureBalance = IERC20(EUR_E).balanceOf(WETH);
+        uint256 prevEureBalance = IERC20(EURE).balanceOf(WETH);
 
-        roboModule.transferErc20(EUR_E, tokenAmount, WETH);
+        roboModule.transferErc20(EURE, tokenAmount, WETH);
 
         vm.warp(block.timestamp + COOL_DOWN_PERIOD);
 
         bytes memory payload = abi.encodeWithSignature("transfer(address,uint256)", WETH, tokenAmount);
 
-        delayModule.executeNextTx(EUR_E, 0, payload, Enum.Operation.Call);
+        delayModule.executeNextTx(EURE, 0, payload, Enum.Operation.Call);
 
-        assertEq(IERC20(EUR_E).balanceOf(WETH), prevEureBalance + tokenAmount);
+        assertEq(IERC20(EURE).balanceOf(WETH), prevEureBalance + tokenAmount);
     }
 }
