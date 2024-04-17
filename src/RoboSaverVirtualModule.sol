@@ -110,10 +110,10 @@ contract RoboSaverVirtualModule {
 
         /// ['uint256', 'uint256[]', 'uint256']
         /// [BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn]
+        uint256[] memory amountsOut = new uint256[](2);
+        amountsOut[1] = _topupAmount;
         bytes memory userData = abi.encode(
-            StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT,
-            [0, 0, _topupAmount],
-            BPT_EURE_STEUR.balanceOf(_avatar)
+            StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, BPT_EURE_STEUR.balanceOf(_avatar)
         );
 
         request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
