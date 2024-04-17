@@ -58,8 +58,8 @@ contract TopupTest is BaseFixture {
         );
         delayModule.executeNextTx(address(roboModule.BALANCER_VAULT()), 0, execTxPayload, Enum.Operation.Call);
 
-        // assertLt(IERC20(BPT_EURE_STEUR).balanceOf(GNOSIS_SAFE), initialBptBal);
-        // assertGt(IERC20(EURE).balanceOf(GNOSIS_SAFE), initialEureBal);
+        assertLt(IERC20(BPT_EURE_STEUR).balanceOf(GNOSIS_SAFE), initialBptBal);
+        assertGt(IERC20(EURE).balanceOf(GNOSIS_SAFE), initialEureBal);
     }
 
     function _transferOutBelowThreshold() internal returns (uint256 tokenAmountTargetToMove_) {
