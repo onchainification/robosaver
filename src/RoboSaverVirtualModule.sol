@@ -104,8 +104,9 @@ contract RoboSaverVirtualModule {
         assets[1] = IAsset(address(BPT_EURE_STEUR));
         assets[2] = IAsset(address(EURE));
 
-        /// TODO: https://docs.balancer.fi/reference/joins-and-exits/pool-exits.html#minamountsout
+        /// allow for one wei of slippage
         uint256[] memory minAmountsOut = new uint256[](3);
+        minAmountsOut[2] = _topupAmount - 1;
 
         /// ['uint256', 'uint256[]', 'uint256']
         /// [BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn]
