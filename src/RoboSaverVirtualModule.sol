@@ -17,9 +17,9 @@ contract RoboSaverVirtualModule {
     IERC20 constant STEUR = IERC20(0x004626A008B1aCdC4c74ab51644093b155e59A23);
     IERC20 constant BPT_EURE_STEUR = IERC20(0x06135A9Ae830476d3a941baE9010B63732a055F4);
 
-    IVault constant BALANCER_VAULT = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
+    IVault public constant BALANCER_VAULT = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
-    bytes32 constant BPT_EURE_STEUR_POOL_ID = 0x06135a9ae830476d3a941bae9010b63732a055f4000000000000000000000065;
+    bytes32 public constant BPT_EURE_STEUR_POOL_ID = 0x06135a9ae830476d3a941bae9010b63732a055f4000000000000000000000065;
     bytes32 constant SET_ALLOWANCE_KEY = keccak256("SPENDING_ALLOWANCE");
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -93,7 +93,11 @@ contract RoboSaverVirtualModule {
     }
 
     /// @notice siphon eure out of the bpt pool
-    function safeTopup(address _avatar, uint256 _topupAmount) external onlyTopupAgents {
+    function safeTopup(address _avatar, uint256 _topupAmount)
+        external
+        onlyTopupAgents
+        returns (IVault.ExitPoolRequest memory request_)
+    {
         /// @dev all asset (related) arrays should always follow this (alphabetical) order
         IAsset[] memory assets = new IAsset[](2);
         assets[0] = IAsset(address(STEUR));
@@ -110,11 +114,12 @@ contract RoboSaverVirtualModule {
             BPT_EURE_STEUR.balanceOf(_avatar)
         );
 
-        IVault.ExitPoolRequest memory request = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
+        request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
 
         /// siphon eure out of pool
-        bytes memory payload =
-            abi.encodeWithSelector(IVault.exitPool.selector, BPT_EURE_STEUR_POOL_ID, _avatar, payable(_avatar), request);
+        bytes memory payload = abi.encodeWithSelector(
+            IVault.exitPool.selector, BPT_EURE_STEUR_POOL_ID, _avatar, payable(_avatar), request_
+        );
         delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, payload, 0);
 
         emit SafeTopup(_avatar, _topupAmount, block.timestamp);
