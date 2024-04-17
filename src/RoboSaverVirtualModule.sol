@@ -113,9 +113,9 @@ contract RoboSaverVirtualModule {
         IVault.ExitPoolRequest memory request = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
 
         /// siphon eure out of pool
-        BPT_EURE_STEUR.approve(address(BALANCER_VAULT), type(uint256).max);
-        BALANCER_VAULT.exitPool(BPT_EURE_STEUR_POOL_ID, _avatar, payable(_avatar), request);
-        BPT_EURE_STEUR.approve(address(BALANCER_VAULT), 0);
+        bytes memory payload =
+            abi.encodeWithSelector(IVault.exitPool.selector, BPT_EURE_STEUR_POOL_ID, _avatar, payable(_avatar), request);
+        delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, payload, 0);
 
         emit SafeTopup(_avatar, _topupAmount, block.timestamp);
     }
