@@ -25,6 +25,14 @@ This process can be observed to successfully work in the [TopupTest.t.sol](test/
 
 Note that the safe's EURE balance going below the threshold of 10 EURE triggered the Gelato worker to queue up the transaction automatically!
 
+<img width="893" alt="Screenshot_2024-04-18_at_16 59 04" src="https://github.com/onchainification/robosaver/assets/2835259/9c7aee20-28d1-408c-9540-0d8f851ef379">
+
+### Deployments
+- `Roles`: https://gnosisscan.io/address/0xa7882cd617b53ac5832acceec0e786dbd38fec4b#code
+- `Delay`: https://gnosisscan.io/address/0x60bea2e60ac91d354cad23391100bc24ebc9450e#code
+- `Bouncer`: https://gnosisscan.io/address/0x40049dec4466fbdc52ec0c21c47c65a6315cf3e7#code
+- `RoboSaverVirtualModule`: https://gnosisscan.io/address/0xe49c90547399f592e92dd28a149a448b17cf3b2a#code
+
 ## Installation
 
 ### Build
