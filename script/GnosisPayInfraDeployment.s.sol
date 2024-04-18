@@ -6,6 +6,7 @@ import {console} from "forge-std/Test.sol";
 
 import {Delay} from "@delay-module/Delay.sol";
 import {Roles} from "@roles-module/Roles.sol";
+import {Bouncer} from "@gnosispay-kit/Bouncer.sol";
 
 import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
 
@@ -61,7 +62,7 @@ contract GnosisPayInfraDeployment is Script {
         bouncerContract = new Bouncer(GNOSIS_SAFE, address(rolesModule), SET_ALLOWANCE_SELECTOR);
 
         // 4. {RoboSaverVirtualModule}
-        roboModule = new RoboSaverVirtualModule(address(delayModule), address(rolesModule), TOP_UP_AGENT);
+        roboModule = new RoboSaverVirtualModule(address(delayModule), address(rolesModule), TRADER_AGENT);
 
         // 5. {Allowance config}
         rolesModule.setAllowance(
