@@ -31,7 +31,7 @@ Note that the safe's EURE balance going below the threshold of 10 EURE triggered
 
 After cloning the repo, run `forge build` to initiate a compilation and fetch necessary dependencies.
 
-Compilation of the contract at the end will raise same errors; this is because currently the `delay-module` requires a separate installation of dependencies. To fix this, run `yarn install --cwd lib/delay-module`.
+Compilation of the contract at the end will raise some errors; this is because currently the `delay-module` requires a separate installation of dependencies. To fix this, run `yarn install --cwd lib/delay-module`.
 
 Finally, copy `.env.example` to `.env` and populate it.
 
