@@ -23,7 +23,7 @@ This process can be observed to successfully work in the [TopupTest.t.sol](test/
 - `safeTopup` call to queue up the withdrawal: https://gnosisscan.io/tx/0x97fadc58880278486e505fc9706a7cfcf5e0e0405446d0912e457bb961e65763#eventlog
 - `executeNextTx` call after the cooldown to actually withdraw: https://gnosisscan.io/tx/0x7852741c5b0e936703c5e0b3f69de368440ee1b1b54e2a8fd487f37fd743a68e
 
-Note that the safe's EURE balance going below the threshold of 10 EURE triggered the Gelato worker to queue up the transaction!
+Note that the safe's EURE balance going below the threshold of 10 EURE triggered the Gelato worker to queue up the transaction automatically!
 
 ## Installation
 
