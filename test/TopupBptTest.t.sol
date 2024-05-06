@@ -38,6 +38,6 @@ contract TopupBptTest is BaseFixture {
 
         // payload = 0x095ea7b3000000000000000000000000ba12222222228d8ba445958a75a0704d566bf2c8000000000000000000000000000000000000000000000028a857425466f80000
         bytes memory multiCallPayalod = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
-        delayModule.executeNextTx(roboModule.MULTICALL_V3(), 0, multiCallPayalod, Enum.Operation.Call);
+        delayModule.executeNextTx(roboModule.MULTICALL_V3(), 0, multiCallPayalod, Enum.Operation.DelegateCall);
     }
 }

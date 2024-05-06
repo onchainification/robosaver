@@ -184,7 +184,7 @@ contract RoboSaverVirtualModule {
 
         bytes memory multiCallPayalod = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
 
-        delayModule.execTransactionFromModule(MULTICALL_V3, 0, multiCallPayalod, 0);
+        delayModule.execTransactionFromModule(MULTICALL_V3, 0, multiCallPayalod, 1);
 
         emit BptTopup(_avatar, _excessEureFunds, block.timestamp);
 
