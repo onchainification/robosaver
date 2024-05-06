@@ -17,7 +17,7 @@ contract RoboSaverVirtualModule {
     uint256 constant SLIPP = 9_800;
     uint256 constant MAX_BPS = 10_000;
 
-    address constant MULTICALL_V3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
+    address public constant MULTICALL_V3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
 
     IERC20 constant EURE = IERC20(0xcB444e90D8198415266c6a2724b7900fb12FC56E);
     IERC20 constant STEUR = IERC20(0x004626A008B1aCdC4c74ab51644093b155e59A23);
@@ -37,6 +37,8 @@ contract RoboSaverVirtualModule {
 
     address public topupAgent;
 
+    uint256 public eureBuffer;
+
     /*//////////////////////////////////////////////////////////////////////////
                                        ERRORS
     //////////////////////////////////////////////////////////////////////////*/
@@ -53,11 +55,13 @@ contract RoboSaverVirtualModule {
     /*//////////////////////////////////////////////////////////////////////////
                                      CONSTRUCTOR
     //////////////////////////////////////////////////////////////////////////*/
-    constructor(address _delayModule, address _rolesModule, address _topupAgent) {
+    constructor(address _delayModule, address _rolesModule, address _topupAgent, uint256 _eureBuffer) {
         delayModule = IDelayModifier(_delayModule);
         rolesModule = IRolesModifier(_rolesModule);
 
         topupAgent = _topupAgent;
+
+        eureBuffer = _eureBuffer;
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -89,10 +93,14 @@ contract RoboSaverVirtualModule {
             uint256 balance = EURE.balanceOf(cachedAvatar);
             (, uint128 maxRefill,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
-            // @note it will queue the tx for topup
             if (balance < maxRefill) {
+                // @note it will queue the tx for topup $EURe
                 uint256 topupAmount = maxRefill - balance;
                 return (true, abi.encodeWithSelector(this.safeTopup.selector, cachedAvatar, topupAmount));
+            } else if (balance > maxRefill + eureBuffer) {
+                // @note it will queue the tx for topup BPT with the excess $EURe funds
+                uint256 excessEureFunds = balance - (maxRefill + eureBuffer);
+                return (true, abi.encodeWithSelector(this.bptTopup.selector, cachedAvatar, excessEureFunds));
             }
 
             return (false, bytes("No queue tx and sufficient balance"));
@@ -141,7 +149,7 @@ contract RoboSaverVirtualModule {
     function bptTopup(address _avatar, uint256 _excessEureFunds)
         external
         onlyTopupAgents
-        returns (IMulticall.Call3[] memory calls_)
+        returns (IMulticall.Call[] memory)
     {
         // 1. approval of eure
         bytes memory approvalPayload =
@@ -170,15 +178,17 @@ contract RoboSaverVirtualModule {
             abi.encodeWithSelector(IVault.joinPool.selector, BPT_EURE_STEUR_POOL_ID, _avatar, _avatar, request);
 
         // 3. batch approval and join into a multicall
-        calls_ = new IMulticall.Call3[](2);
-        calls_[0] = IMulticall.Call3(address(EURE), false, approvalPayload);
-        calls_[1] = IMulticall.Call3(address(BALANCER_VAULT), false, joinPoolPayload);
+        IMulticall.Call[] memory calls_ = new IMulticall.Call[](2);
+        calls_[0] = IMulticall.Call(address(EURE), approvalPayload);
+        calls_[1] = IMulticall.Call(address(BALANCER_VAULT), joinPoolPayload);
 
-        bytes memory multiCallPayalod = abi.encodeWithSelector(IMulticall.aggregate3.selector, calls_);
+        bytes memory multiCallPayalod = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
 
         delayModule.execTransactionFromModule(MULTICALL_V3, 0, multiCallPayalod, 0);
 
         emit BptTopup(_avatar, _excessEureFunds, block.timestamp);
+
+        return calls_;
     }
 
     function execQueuedTransaction() external onlyTopupAgents {

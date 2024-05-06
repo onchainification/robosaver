@@ -23,6 +23,7 @@ contract BaseFixture is Test {
 
     uint256 constant EURE_TO_MINT = 1_000e18;
     uint128 constant MIN_EURE_ALLOWANCE = 200e18;
+    uint256 constant EURE_BUFFER = 50e18;
 
     address constant GNOSIS_SAFE = 0xa4A4a4879dCD3289312884e9eC74Ed37f9a92a55;
     address constant SAFE_EOA_SIGNER = 0x1377aaE47bB2a62f54351Ec36bA6a5313FC5844c;
@@ -48,6 +49,7 @@ contract BaseFixture is Test {
     address constant EURE_MINTER = 0x882145B1F9764372125861727d7bE616c84010Ef;
 
     bytes4 constant SAFE_TOP_UP_SELECTOR = 0x476c6d74;
+    bytes4 constant SAFE_BPT_TOP_UP_SELECTOR = 0x98ec6ee3;
 
     // gnosis pay modules
     Delay delayModule;
@@ -72,7 +74,7 @@ contract BaseFixture is Test {
 
         bouncerContract = new Bouncer(GNOSIS_SAFE, address(rolesModule), SET_ALLOWANCE_SELECTOR);
 
-        roboModule = new RoboSaverVirtualModule(address(delayModule), address(rolesModule), TOP_UP_AGENT);
+        roboModule = new RoboSaverVirtualModule(address(delayModule), address(rolesModule), TOP_UP_AGENT, EURE_BUFFER);
 
         vm.prank(GNOSIS_SAFE);
         delayModule.enableModule(address(roboModule));
