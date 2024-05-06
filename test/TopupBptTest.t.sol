@@ -33,11 +33,10 @@ contract TopupBptTest is BaseFixture {
         // 2. join the pool single sided with the excess
         IMulticall.Call[] memory calls_ = abi.decode(data, (IMulticall.Call[]));
 
-        // console.log("calls_[0] target: %s", calls_[0].target);
-        // console.logBytes(calls_[0].callData);
-
-        // payload = 0x095ea7b3000000000000000000000000ba12222222228d8ba445958a75a0704d566bf2c8000000000000000000000000000000000000000000000028a857425466f80000
         bytes memory multiCallPayalod = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
         delayModule.executeNextTx(roboModule.MULTICALL_V3(), 0, multiCallPayalod, Enum.Operation.DelegateCall);
+
+        assertLt(IERC20(EURE).balanceOf(GNOSIS_SAFE), initialEureBal);
+        assertGt(IERC20(BPT_EURE_STEUR).balanceOf(GNOSIS_SAFE), initialBptBal);
     }
 }
