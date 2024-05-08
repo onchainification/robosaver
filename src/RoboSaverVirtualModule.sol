@@ -15,7 +15,7 @@ contract RoboSaverVirtualModule {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice Enum representing the different possible top-up types.
-    /// @custom:value0 SAFE Top-up of the $EURe balance in the avatar.
+    /// @custom:value0 SAFE Top-up of the $EURe balance in the card.
     /// @custom:value1 BPT Top-up of the BPT pool with the excess $EURe funds.
     enum TopupType {
         SAFE,
@@ -92,33 +92,33 @@ contract RoboSaverVirtualModule {
 
     /// @dev Check condition and determine whether a task should be executed by Gelato.
     function checker() external view returns (bool canExec, bytes memory execPayload) {
-        address cachedAvatar = delayModule.avatar();
+        address card = delayModule.avatar();
 
-        uint256 balance = EURE.balanceOf(cachedAvatar);
+        uint256 balance = EURE.balanceOf(card);
         (, uint128 maxRefill,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
         if (balance < maxRefill) {
             // @note it will queue the tx for topup $EURe
             uint256 topupAmount = maxRefill - balance;
-            return (true, abi.encodeWithSelector(this.execTopup.selector, TopupType.SAFE, cachedAvatar, topupAmount));
+            return (true, abi.encodeWithSelector(this.execTopup.selector, TopupType.SAFE, card, topupAmount));
         } else if (balance > maxRefill + eureBuffer) {
             // @note it will queue the tx for topup BPT with the excess $EURe funds
             uint256 excessEureFunds = balance - (maxRefill + eureBuffer);
-            return (true, abi.encodeWithSelector(this.execTopup.selector, TopupType.BPT, cachedAvatar, excessEureFunds));
+            return (true, abi.encodeWithSelector(this.execTopup.selector, TopupType.BPT, card, excessEureFunds));
         }
 
         return (false, bytes("No queue tx and sufficient balance"));
     }
 
-    function execTopup(TopupType _type, address _avatar, uint256 _topupAmount)
+    function execTopup(TopupType _type, address _card, uint256 _topupAmount)
         external
         onlyTopupAgents
         returns (bytes memory execPayload_)
     {
         if (_type == TopupType.SAFE) {
-            execPayload_ = abi.encode(_safeTopup(_avatar, _topupAmount));
+            execPayload_ = abi.encode(_safeTopup(_card, _topupAmount));
         } else if (_type == TopupType.BPT) {
-            execPayload_ = abi.encode(_bptTopup(_avatar, _topupAmount));
+            execPayload_ = abi.encode(_bptTopup(_card, _topupAmount));
         }
     }
 
@@ -127,9 +127,9 @@ contract RoboSaverVirtualModule {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice siphon eure out of the bpt pool
-    /// @param _avatar The address of the avatar in which the virtual module is withdrawing in behalf of.
+    /// @param _card The address of the card in which the virtual module is withdrawing in behalf of.
     /// @param _topupAmount The amount of eure to withdraw from the bpt pool.
-    function _safeTopup(address _avatar, uint256 _topupAmount)
+    function _safeTopup(address _card, uint256 _topupAmount)
         internal
         returns (IVault.ExitPoolRequest memory request_)
     {
@@ -153,18 +153,17 @@ contract RoboSaverVirtualModule {
         request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
 
         /// siphon eure out of pool
-        bytes memory payload = abi.encodeWithSelector(
-            IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _avatar, payable(_avatar), request_
-        );
+        bytes memory payload =
+            abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
         delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, payload, 0);
 
-        emit SafeTopup(_avatar, _topupAmount, block.timestamp);
+        emit SafeTopup(_card, _topupAmount, block.timestamp);
     }
 
     /// @notice siphon eure into the bpt pool
-    /// @param _avatar The address of the avatar in which the virtual module is depositing in behalf of.
+    /// @param _card The address of the card in which the virtual module is depositing in behalf of.
     /// @param _excessEureFunds The amount of eure to deposit into the bpt pool.
-    function _bptTopup(address _avatar, uint256 _excessEureFunds) internal returns (IMulticall.Call[] memory) {
+    function _bptTopup(address _card, uint256 _excessEureFunds) internal returns (IMulticall.Call[] memory) {
         // 1. approval of eure
         bytes memory approvalPayload =
             abi.encodeWithSignature("approve(address,uint256)", address(BALANCER_VAULT), _excessEureFunds);
@@ -189,7 +188,7 @@ contract RoboSaverVirtualModule {
         IVault.JoinPoolRequest memory request = IVault.JoinPoolRequest(assets, maxAmountsIn, userData, false);
 
         bytes memory joinPoolPayload =
-            abi.encodeWithSelector(IVault.joinPool.selector, BPT_STEUR_EURE_POOL_ID, _avatar, _avatar, request);
+            abi.encodeWithSelector(IVault.joinPool.selector, BPT_STEUR_EURE_POOL_ID, _card, _card, request);
 
         // 3. batch approval and join into a multicall
         IMulticall.Call[] memory calls_ = new IMulticall.Call[](2);
@@ -200,7 +199,7 @@ contract RoboSaverVirtualModule {
 
         delayModule.execTransactionFromModule(MULTICALL3, 0, multiCallPayalod, 1);
 
-        emit BptTopup(_avatar, _excessEureFunds, block.timestamp);
+        emit BptTopup(_card, _excessEureFunds, block.timestamp);
 
         return calls_;
     }
