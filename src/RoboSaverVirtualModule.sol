@@ -31,13 +31,13 @@ contract RoboSaverVirtualModule {
 
     address public constant MULTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
 
-    IERC20 constant EURE = IERC20(0xcB444e90D8198415266c6a2724b7900fb12FC56E);
     IERC20 constant STEUR = IERC20(0x004626A008B1aCdC4c74ab51644093b155e59A23);
-    IERC20 constant BPT_EURE_STEUR = IERC20(0x06135A9Ae830476d3a941baE9010B63732a055F4);
+    IERC20 constant EURE = IERC20(0xcB444e90D8198415266c6a2724b7900fb12FC56E);
+    IERC20 constant BPT_STEUR_EURE = IERC20(0x06135A9Ae830476d3a941baE9010B63732a055F4);
 
     IVault public constant BALANCER_VAULT = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
-    bytes32 public constant BPT_EURE_STEUR_POOL_ID = 0x06135a9ae830476d3a941bae9010b63732a055f4000000000000000000000065;
+    bytes32 public constant BPT_STEUR_EURE_POOL_ID = 0x06135a9ae830476d3a941bae9010b63732a055f4000000000000000000000065;
     bytes32 constant SET_ALLOWANCE_KEY = keccak256("SPENDING_ALLOWANCE");
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -136,7 +136,7 @@ contract RoboSaverVirtualModule {
         /// @dev all asset (related) arrays should always follow this (alphabetical) order
         IAsset[] memory assets = new IAsset[](3);
         assets[0] = IAsset(address(STEUR));
-        assets[1] = IAsset(address(BPT_EURE_STEUR));
+        assets[1] = IAsset(address(BPT_STEUR_EURE));
         assets[2] = IAsset(address(EURE));
 
         /// allow for one wei of slippage
@@ -154,7 +154,7 @@ contract RoboSaverVirtualModule {
 
         /// siphon eure out of pool
         bytes memory payload = abi.encodeWithSelector(
-            IVault.exitPool.selector, BPT_EURE_STEUR_POOL_ID, _avatar, payable(_avatar), request_
+            IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _avatar, payable(_avatar), request_
         );
         delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, payload, 0);
 
@@ -172,7 +172,7 @@ contract RoboSaverVirtualModule {
         // 2. join bpt
         IAsset[] memory assets = new IAsset[](3);
         assets[0] = IAsset(address(STEUR));
-        assets[1] = IAsset(address(BPT_EURE_STEUR));
+        assets[1] = IAsset(address(BPT_STEUR_EURE));
         assets[2] = IAsset(address(EURE));
 
         uint256[] memory maxAmountsIn = new uint256[](3);
@@ -189,7 +189,7 @@ contract RoboSaverVirtualModule {
         IVault.JoinPoolRequest memory request = IVault.JoinPoolRequest(assets, maxAmountsIn, userData, false);
 
         bytes memory joinPoolPayload =
-            abi.encodeWithSelector(IVault.joinPool.selector, BPT_EURE_STEUR_POOL_ID, _avatar, _avatar, request);
+            abi.encodeWithSelector(IVault.joinPool.selector, BPT_STEUR_EURE_POOL_ID, _avatar, _avatar, request);
 
         // 3. batch approval and join into a multicall
         IMulticall.Call[] memory calls_ = new IMulticall.Call[](2);

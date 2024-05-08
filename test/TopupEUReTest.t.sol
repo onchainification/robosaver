@@ -32,7 +32,7 @@ contract TopupTest is BaseFixture {
 
     // @note ref for error codes: https://docs.balancer.fi/reference/contracts/error-codes.html#error-codes
     function testExitPool() public {
-        uint256 initialBptBal = IERC20(BPT_EURE_STEUR).balanceOf(GNOSIS_SAFE);
+        uint256 initialBptBal = IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE);
 
         uint256 tokenAmountTargetToMove = _transferOutBelowThreshold();
 
@@ -58,11 +58,11 @@ contract TopupTest is BaseFixture {
         IVault.ExitPoolRequest memory request = abi.decode(data, (IVault.ExitPoolRequest));
 
         bytes memory execTxPayload = abi.encodeWithSelector(
-            IVault.exitPool.selector, roboModule.BPT_EURE_STEUR_POOL_ID(), GNOSIS_SAFE, payable(GNOSIS_SAFE), request
+            IVault.exitPool.selector, roboModule.BPT_STEUR_EURE_POOL_ID(), GNOSIS_SAFE, payable(GNOSIS_SAFE), request
         );
         delayModule.executeNextTx(address(roboModule.BALANCER_VAULT()), 0, execTxPayload, Enum.Operation.Call);
 
-        assertLt(IERC20(BPT_EURE_STEUR).balanceOf(GNOSIS_SAFE), initialBptBal);
+        assertLt(IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE), initialBptBal);
         assertGt(IERC20(EURE).balanceOf(GNOSIS_SAFE), initialEureBal);
     }
 

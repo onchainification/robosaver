@@ -44,7 +44,7 @@ contract BaseFixture is Test {
     // tokens
     address constant EURE = 0xcB444e90D8198415266c6a2724b7900fb12FC56E;
     address constant WETH = 0x6A023CCd1ff6F2045C3309768eAd9E68F978f6e1;
-    address constant BPT_EURE_STEUR = 0x06135A9Ae830476d3a941baE9010B63732a055F4;
+    address constant BPT_STEUR_EURE = 0x06135A9Ae830476d3a941baE9010B63732a055F4;
 
     address constant EURE_MINTER = 0x882145B1F9764372125861727d7bE616c84010Ef;
 
@@ -106,7 +106,7 @@ contract BaseFixture is Test {
         vm.prank(EURE_MINTER);
         IEURe(EURE).mintTo(GNOSIS_SAFE, EURE_TO_MINT);
 
-        deal(BPT_EURE_STEUR, GNOSIS_SAFE, EURE_TO_MINT);
+        deal(BPT_STEUR_EURE, GNOSIS_SAFE, EURE_TO_MINT);
 
         vm.label(EURE, "EURE");
         vm.label(WETH, "WETH");
@@ -115,7 +115,7 @@ contract BaseFixture is Test {
         vm.label(address(bouncerContract), "BOUNCER_CONTRACT");
         vm.label(address(rolesModule), "ROLES_MODULE");
         vm.label(address(roboModule), "ROBO_MODULE");
-        vm.label(BPT_EURE_STEUR, "BPT_EURE_STEUR");
+        vm.label(BPT_STEUR_EURE, "BPT_STEUR_EURE");
         vm.label(address(roboModule.BALANCER_VAULT()), "BALANCER_VAULT");
     }
 

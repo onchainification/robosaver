@@ -16,7 +16,7 @@ import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
 contract TopupBptTest is BaseFixture {
     function testTopupBpt() public {
         uint256 initialEureBal = IERC20(EURE).balanceOf(GNOSIS_SAFE);
-        uint256 initialBptBal = IERC20(BPT_EURE_STEUR).balanceOf(GNOSIS_SAFE);
+        uint256 initialBptBal = IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE);
 
         (bool canExec, bytes memory execPayload) = roboModule.checker();
         (bytes memory dataWithoutSelector, bytes4 selector) = _extractEncodeDataWithoutSelector(execPayload);
@@ -41,6 +41,6 @@ contract TopupBptTest is BaseFixture {
         delayModule.executeNextTx(roboModule.MULTICALL3(), 0, multiCallPayalod, Enum.Operation.DelegateCall);
 
         assertLt(IERC20(EURE).balanceOf(GNOSIS_SAFE), initialEureBal);
-        assertGt(IERC20(BPT_EURE_STEUR).balanceOf(GNOSIS_SAFE), initialBptBal);
+        assertGt(IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE), initialBptBal);
     }
 }
