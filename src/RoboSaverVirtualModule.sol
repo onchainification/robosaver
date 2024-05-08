@@ -11,6 +11,18 @@ import "@balancer-v2/interfaces/contracts/pool-stable/StablePoolUserData.sol";
 
 contract RoboSaverVirtualModule {
     /*//////////////////////////////////////////////////////////////////////////
+                                     DATA TYPES
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Enum representing the different possible top-up types.
+    /// @custom:value0 SAFE Top-up of the $EURe balance in the avatar.
+    /// @custom:value1 BPT Top-up of the BPT pool with the excess $EURe funds.
+    enum TopupType {
+        SAFE,
+        BPT
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
                                    CONSTANTS
     //////////////////////////////////////////////////////////////////////////*/
 
@@ -74,45 +86,61 @@ contract RoboSaverVirtualModule {
         _;
     }
 
+    /*//////////////////////////////////////////////////////////////////////////
+                    EXTERNAL METHODS: TOP-UP AGENTS
+    //////////////////////////////////////////////////////////////////////////*/
+
     /// @dev Check condition and determine whether a task should be executed by Gelato.
     function checker() external view returns (bool canExec, bytes memory execPayload) {
         address cachedAvatar = delayModule.avatar();
 
-        uint256 queueNonce = delayModule.queueNonce();
-        uint256 txNonce = delayModule.txNonce();
+        uint256 balance = EURE.balanceOf(cachedAvatar);
+        (, uint128 maxRefill,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
-        if (txNonce != queueNonce) {
-            uint256 txQueuedAt = delayModule.getTxCreatedAt(queueNonce - 1);
-            // @note triggers the condition for exec the pendant tx in the delay module
-            if (block.timestamp - txQueuedAt >= delayModule.txCooldown()) {
-                return (true, abi.encodeWithSelector(IDelayModifier.executeNextTx.selector));
-            }
+        if (balance < maxRefill) {
+            // @note it will queue the tx for topup $EURe
+            uint256 topupAmount = maxRefill - balance;
+            return (true, abi.encodeWithSelector(this.execTopup.selector, TopupType.SAFE, cachedAvatar, topupAmount));
+        } else if (balance > maxRefill + eureBuffer) {
+            // @note it will queue the tx for topup BPT with the excess $EURe funds
+            uint256 excessEureFunds = balance - (maxRefill + eureBuffer);
+            return (true, abi.encodeWithSelector(this.execTopup.selector, TopupType.BPT, cachedAvatar, excessEureFunds));
+        }
 
-            return (false, bytes("Tx cooldown not reached"));
-        } else {
-            uint256 balance = EURE.balanceOf(cachedAvatar);
-            (, uint128 maxRefill,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
+        return (false, bytes("No queue tx and sufficient balance"));
+    }
 
-            if (balance < maxRefill) {
-                // @note it will queue the tx for topup $EURe
-                uint256 topupAmount = maxRefill - balance;
-                return (true, abi.encodeWithSelector(this.safeTopup.selector, cachedAvatar, topupAmount));
-            } else if (balance > maxRefill + eureBuffer) {
-                // @note it will queue the tx for topup BPT with the excess $EURe funds
-                uint256 excessEureFunds = balance - (maxRefill + eureBuffer);
-                return (true, abi.encodeWithSelector(this.bptTopup.selector, cachedAvatar, excessEureFunds));
-            }
-
-            return (false, bytes("No queue tx and sufficient balance"));
+    function execTopup(TopupType _type, bytes memory _payload)
+        external
+        onlyTopupAgents
+        returns (bytes memory execPayload_)
+    {
+        (address avatar, uint256 topupAmount) = abi.decode(_payload, (address, uint256));
+        if (_type == TopupType.SAFE) {
+            execPayload_ = abi.encode(_safeTopup(avatar, topupAmount));
+        } else if (_type == TopupType.BPT) {
+            execPayload_ = abi.encode(_bptTopup(avatar, topupAmount));
         }
     }
+
+    function transferErc20(address _token, uint256 _tokenTransferAmount, address _destination) external {
+        _transferErc20(_token, _tokenTransferAmount, _destination);
+    }
+
+    function _transferErc20(address _token, uint256 _tokenTransferAmount, address _destination) internal {
+        bytes memory payload = abi.encodeWithSignature("transfer(address,uint256)", _destination, _tokenTransferAmount);
+        delayModule.execTransactionFromModule(_token, 0, payload, 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                    INTERNAL METHODS: TOP-UPS & TX QUEUING
+    //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice siphon eure out of the bpt pool
     /// @param _avatar The address of the avatar in which the virtual module is withdrawing in behalf of.
     /// @param _topupAmount The amount of eure to withdraw from the bpt pool.
-    function safeTopup(address _avatar, uint256 _topupAmount)
-        external
-        onlyTopupAgents
+    function _safeTopup(address _avatar, uint256 _topupAmount)
+        internal
         returns (IVault.ExitPoolRequest memory request_)
     {
         /// @dev all asset (related) arrays should always follow this (alphabetical) order
@@ -146,11 +174,7 @@ contract RoboSaverVirtualModule {
     /// @notice siphon eure into the bpt pool
     /// @param _avatar The address of the avatar in which the virtual module is depositing in behalf of.
     /// @param _excessEureFunds The amount of eure to deposit into the bpt pool.
-    function bptTopup(address _avatar, uint256 _excessEureFunds)
-        external
-        onlyTopupAgents
-        returns (IMulticall.Call[] memory)
-    {
+    function _bptTopup(address _avatar, uint256 _excessEureFunds) internal returns (IMulticall.Call[] memory) {
         // 1. approval of eure
         bytes memory approvalPayload =
             abi.encodeWithSignature("approve(address,uint256)", address(BALANCER_VAULT), _excessEureFunds);
@@ -189,18 +213,5 @@ contract RoboSaverVirtualModule {
         emit BptTopup(_avatar, _excessEureFunds, block.timestamp);
 
         return calls_;
-    }
-
-    function execQueuedTransaction() external onlyTopupAgents {
-        // @note it will execute the pending tx in the delay module
-    }
-
-    function transferErc20(address _token, uint256 _tokenTransferAmount, address _destination) external {
-        _transferErc20(_token, _tokenTransferAmount, _destination);
-    }
-
-    function _transferErc20(address _token, uint256 _tokenTransferAmount, address _destination) internal {
-        bytes memory payload = abi.encodeWithSignature("transfer(address,uint256)", _destination, _tokenTransferAmount);
-        delayModule.execTransactionFromModule(_token, 0, payload, 0);
     }
 }

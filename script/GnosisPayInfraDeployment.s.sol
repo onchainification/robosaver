@@ -62,7 +62,7 @@ contract GnosisPayInfraDeployment is Script {
         bouncerContract = new Bouncer(GNOSIS_SAFE, address(rolesModule), SET_ALLOWANCE_SELECTOR);
 
         // 4. {RoboSaverVirtualModule}
-        roboModule = new RoboSaverVirtualModule(address(delayModule), address(rolesModule), TRADER_AGENT);
+        roboModule = new RoboSaverVirtualModule(address(delayModule), address(rolesModule), TRADER_AGENT, 50e18);
 
         // 5. {Allowance config}
         rolesModule.setAllowance(
