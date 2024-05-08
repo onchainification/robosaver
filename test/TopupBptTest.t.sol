@@ -38,7 +38,7 @@ contract TopupBptTest is BaseFixture {
         IMulticall.Call[] memory calls_ = abi.decode(execPayload_, (IMulticall.Call[]));
 
         bytes memory multiCallPayalod = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
-        delayModule.executeNextTx(roboModule.MULTICALL_V3(), 0, multiCallPayalod, Enum.Operation.DelegateCall);
+        delayModule.executeNextTx(roboModule.MULTICALL3(), 0, multiCallPayalod, Enum.Operation.DelegateCall);
 
         assertLt(IERC20(EURE).balanceOf(GNOSIS_SAFE), initialEureBal);
         assertGt(IERC20(BPT_EURE_STEUR).balanceOf(GNOSIS_SAFE), initialBptBal);

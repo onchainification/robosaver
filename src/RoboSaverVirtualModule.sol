@@ -29,7 +29,7 @@ contract RoboSaverVirtualModule {
     uint256 constant SLIPP = 9_800;
     uint256 constant MAX_BPS = 10_000;
 
-    address public constant MULTICALL_V3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
+    address public constant MULTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
 
     IERC20 constant EURE = IERC20(0xcB444e90D8198415266c6a2724b7900fb12FC56E);
     IERC20 constant STEUR = IERC20(0x004626A008B1aCdC4c74ab51644093b155e59A23);
@@ -198,7 +198,7 @@ contract RoboSaverVirtualModule {
 
         bytes memory multiCallPayalod = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
 
-        delayModule.execTransactionFromModule(MULTICALL_V3, 0, multiCallPayalod, 1);
+        delayModule.execTransactionFromModule(MULTICALL3, 0, multiCallPayalod, 1);
 
         emit BptTopup(_avatar, _excessEureFunds, block.timestamp);
 
