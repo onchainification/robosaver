@@ -118,4 +118,16 @@ contract BaseFixture is Test {
         vm.label(BPT_EURE_STEUR, "BPT_EURE_STEUR");
         vm.label(address(roboModule.BALANCER_VAULT()), "BALANCER_VAULT");
     }
+
+    // ref: https://github.com/ethereum/solidity/issues/14996
+    function _extractEncodeDataWithoutSelector(bytes memory myData) public pure returns (bytes memory, bytes4) {
+        uint256 BYTES4_SIZE = 4;
+        uint256 bytesSize = myData.length - BYTES4_SIZE;
+        bytes memory dataWithoutSelector = new bytes(bytesSize);
+        for (uint8 i = 0; i < bytesSize; i++) {
+            dataWithoutSelector[i] = myData[i + BYTES4_SIZE];
+        }
+        bytes4 selector = bytes4(myData);
+        return (dataWithoutSelector, selector);
+    }
 }
