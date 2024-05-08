@@ -123,15 +123,6 @@ contract RoboSaverVirtualModule {
         }
     }
 
-    function transferErc20(address _token, uint256 _tokenTransferAmount, address _destination) external {
-        _transferErc20(_token, _tokenTransferAmount, _destination);
-    }
-
-    function _transferErc20(address _token, uint256 _tokenTransferAmount, address _destination) internal {
-        bytes memory payload = abi.encodeWithSignature("transfer(address,uint256)", _destination, _tokenTransferAmount);
-        delayModule.execTransactionFromModule(_token, 0, payload, 0);
-    }
-
     /*//////////////////////////////////////////////////////////////////////////
                     INTERNAL METHODS: TOP-UPS & TX QUEUING
     //////////////////////////////////////////////////////////////////////////*/
