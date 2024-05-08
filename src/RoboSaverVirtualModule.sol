@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.25;
 
 import {IMulticall} from "@gnosispay-kit/interfaces/IMulticall.sol";
 import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
