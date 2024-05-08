@@ -20,7 +20,7 @@ contract TopupBptTest is BaseFixture {
 
         // since initially it was minted 1000 it should be way above the buffer
         assertTrue(canExec);
-        assertEq(bytes4(execPayload), SAFE_BPT_TOP_UP_SELECTOR);
+        assertEq(bytes4(execPayload), EXEC_TOP_UP_SELECTOR);
 
         vm.prank(TOP_UP_AGENT);
         (bool success, bytes memory data) = address(roboModule).call(execPayload);

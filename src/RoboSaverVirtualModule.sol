@@ -110,16 +110,15 @@ contract RoboSaverVirtualModule {
         return (false, bytes("No queue tx and sufficient balance"));
     }
 
-    function execTopup(TopupType _type, bytes memory _payload)
+    function execTopup(TopupType _type, address _avatar, uint256 _topupAmount)
         external
         onlyTopupAgents
         returns (bytes memory execPayload_)
     {
-        (address avatar, uint256 topupAmount) = abi.decode(_payload, (address, uint256));
         if (_type == TopupType.SAFE) {
-            execPayload_ = abi.encode(_safeTopup(avatar, topupAmount));
+            execPayload_ = abi.encode(_safeTopup(_avatar, _topupAmount));
         } else if (_type == TopupType.BPT) {
-            execPayload_ = abi.encode(_bptTopup(avatar, topupAmount));
+            execPayload_ = abi.encode(_bptTopup(_avatar, _topupAmount));
         }
     }
 
