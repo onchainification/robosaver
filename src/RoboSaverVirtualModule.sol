@@ -47,15 +47,14 @@ contract RoboSaverVirtualModule {
     IDelayModifier public delayModule;
     IRolesModifier public rolesModule;
 
-    address public topupAgent;
-
-    uint256 public eureBuffer;
+    address public keeper;
+    uint256 public buffer;
 
     /*//////////////////////////////////////////////////////////////////////////
                                        ERRORS
     //////////////////////////////////////////////////////////////////////////*/
 
-    error NotTopupAgent(address agent);
+    error NotKeeper(address agent);
 
     /*//////////////////////////////////////////////////////////////////////////
                                        EVENTS
@@ -67,13 +66,12 @@ contract RoboSaverVirtualModule {
     /*//////////////////////////////////////////////////////////////////////////
                                      CONSTRUCTOR
     //////////////////////////////////////////////////////////////////////////*/
-    constructor(address _delayModule, address _rolesModule, address _topupAgent, uint256 _eureBuffer) {
+
+    constructor(address _delayModule, address _rolesModule, address _keeper, uint256 _buffer) {
         delayModule = IDelayModifier(_delayModule);
         rolesModule = IRolesModifier(_rolesModule);
-
-        topupAgent = _topupAgent;
-
-        eureBuffer = _eureBuffer;
+        keeper = _keeper;
+        buffer = _buffer;
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -81,8 +79,8 @@ contract RoboSaverVirtualModule {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice Checks whether a call is authorized to trigger top-up or exec queue txs
-    modifier onlyTopupAgents() {
-        if (msg.sender != topupAgent) revert NotTopupAgent(msg.sender);
+    modifier onlyKeeper() {
+        if (msg.sender != keeper) revert NotKeeper(msg.sender);
         _;
     }
 
@@ -95,30 +93,30 @@ contract RoboSaverVirtualModule {
         address card = delayModule.avatar();
 
         uint256 balance = EURE.balanceOf(card);
-        (, uint128 maxRefill,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
+        (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
-        if (balance < maxRefill) {
+        if (balance < dailyAllowance) {
             // @note it will queue the tx for topup $EURe
-            uint256 topupAmount = maxRefill - balance;
-            return (true, abi.encodeWithSelector(this.execTopup.selector, TopupType.SAFE, card, topupAmount));
-        } else if (balance > maxRefill + eureBuffer) {
+            uint256 deficit = dailyAllowance - balance;
+            return (true, abi.encodeWithSelector(this.execTopup.selector, TopupType.SAFE, card, deficit));
+        } else if (balance > dailyAllowance + buffer) {
             // @note it will queue the tx for topup BPT with the excess $EURe funds
-            uint256 excessEureFunds = balance - (maxRefill + eureBuffer);
-            return (true, abi.encodeWithSelector(this.execTopup.selector, TopupType.BPT, card, excessEureFunds));
+            uint256 surplus = balance - (dailyAllowance + buffer);
+            return (true, abi.encodeWithSelector(this.execTopup.selector, TopupType.BPT, card, surplus));
         }
 
         return (false, bytes("No queue tx and sufficient balance"));
     }
 
-    function execTopup(TopupType _type, address _card, uint256 _topupAmount)
+    function execTopup(TopupType _type, address _card, uint256 _deficit)
         external
-        onlyTopupAgents
+        onlyKeeper
         returns (bytes memory execPayload_)
     {
         if (_type == TopupType.SAFE) {
-            execPayload_ = abi.encode(_safeTopup(_card, _topupAmount));
+            execPayload_ = abi.encode(_safeTopup(_card, _deficit));
         } else if (_type == TopupType.BPT) {
-            execPayload_ = abi.encode(_bptTopup(_card, _topupAmount));
+            execPayload_ = abi.encode(_bptTopup(_card, _deficit));
         }
     }
 
@@ -128,11 +126,8 @@ contract RoboSaverVirtualModule {
 
     /// @notice siphon eure out of the bpt pool
     /// @param _card The address of the card in which the virtual module is withdrawing in behalf of.
-    /// @param _topupAmount The amount of eure to withdraw from the bpt pool.
-    function _safeTopup(address _card, uint256 _topupAmount)
-        internal
-        returns (IVault.ExitPoolRequest memory request_)
-    {
+    /// @param _deficit The amount of eure to withdraw from the bpt pool.
+    function _safeTopup(address _card, uint256 _deficit) internal returns (IVault.ExitPoolRequest memory request_) {
         /// @dev all asset (related) arrays should always follow this (alphabetical) order
         IAsset[] memory assets = new IAsset[](3);
         assets[0] = IAsset(address(STEUR));
@@ -141,12 +136,12 @@ contract RoboSaverVirtualModule {
 
         /// allow for one wei of slippage
         uint256[] memory minAmountsOut = new uint256[](3);
-        minAmountsOut[2] = _topupAmount - 1;
+        minAmountsOut[2] = _deficit - 1;
 
         /// ['uint256', 'uint256[]', 'uint256']
         /// [BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn]
         uint256[] memory amountsOut = new uint256[](2);
-        amountsOut[1] = _topupAmount;
+        amountsOut[1] = _deficit;
         bytes memory userData =
             abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, type(uint256).max);
 
@@ -157,16 +152,16 @@ contract RoboSaverVirtualModule {
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
         delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, payload, 0);
 
-        emit SafeTopup(_card, _topupAmount, block.timestamp);
+        emit SafeTopup(_card, _deficit, block.timestamp);
     }
 
     /// @notice siphon eure into the bpt pool
     /// @param _card The address of the card in which the virtual module is depositing in behalf of.
-    /// @param _excessEureFunds The amount of eure to deposit into the bpt pool.
-    function _bptTopup(address _card, uint256 _excessEureFunds) internal returns (IMulticall.Call[] memory) {
+    /// @param _surplus The amount of eure to deposit into the bpt pool.
+    function _bptTopup(address _card, uint256 _surplus) internal returns (IMulticall.Call[] memory) {
         // 1. approval of eure
         bytes memory approvalPayload =
-            abi.encodeWithSignature("approve(address,uint256)", address(BALANCER_VAULT), _excessEureFunds);
+            abi.encodeWithSignature("approve(address,uint256)", address(BALANCER_VAULT), _surplus);
 
         // 2. join bpt
         IAsset[] memory assets = new IAsset[](3);
@@ -175,13 +170,13 @@ contract RoboSaverVirtualModule {
         assets[2] = IAsset(address(EURE));
 
         uint256[] memory maxAmountsIn = new uint256[](3);
-        maxAmountsIn[2] = _excessEureFunds;
+        maxAmountsIn[2] = _surplus;
 
         // ['uint256', 'uint256[]', 'uint256']
         // [EXACT_TOKENS_IN_FOR_BPT_OUT, amountsIn, minimumBPT]
         uint256[] memory amountsIn = new uint256[](2);
-        amountsIn[1] = _excessEureFunds;
-        uint256 minimumBPT = (_excessEureFunds * SLIPP) / MAX_BPS;
+        amountsIn[1] = _surplus;
+        uint256 minimumBPT = (_surplus * SLIPP) / MAX_BPS;
         bytes memory userData =
             abi.encode(StablePoolUserData.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, amountsIn, minimumBPT);
 
@@ -199,7 +194,7 @@ contract RoboSaverVirtualModule {
 
         delayModule.execTransactionFromModule(MULTICALL3, 0, multiCallPayalod, 1);
 
-        emit BptTopup(_card, _excessEureFunds, block.timestamp);
+        emit BptTopup(_card, _surplus, block.timestamp);
 
         return calls_;
     }
