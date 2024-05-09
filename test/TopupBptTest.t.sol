@@ -23,7 +23,7 @@ contract TopupBptTest is BaseFixture {
 
         // since initially it was minted 1000 it should be way above the buffer
         assertTrue(canExec);
-        assertEq(selector, EXEC_TOP_UP_SELECTOR);
+        assertEq(selector, ADJUST_POOL_SELECTOR);
 
         vm.prank(TOP_UP_AGENT);
         (RoboSaverVirtualModule.PoolAction _action, address _card, uint256 _amount) =

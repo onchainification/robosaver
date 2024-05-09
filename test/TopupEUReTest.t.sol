@@ -14,7 +14,7 @@ contract TopupTest is BaseFixture {
         // @note since there is logic also on the buffer up, here the conditional will trigger bpt topup
         // but on this test we are not interested on that dynamic
         assertTrue(canExec);
-        assertEq(bytes4(execPayload), SAFE_BPT_TOP_UP_SELECTOR);
+        assertEq(bytes4(execPayload), ADJUST_POOL_SELECTOR);
 
         uint256 tokenAmountTargetToMove = _transferOutBelowThreshold();
 
@@ -27,7 +27,7 @@ contract TopupTest is BaseFixture {
         (canExec, execPayload) = roboModule.checker();
 
         assertTrue(canExec);
-        assertEq(bytes4(execPayload), SAFE_TOP_UP_SELECTOR);
+        assertEq(bytes4(execPayload), ADJUST_POOL_SELECTOR);
     }
 
     // @note ref for error codes: https://docs.balancer.fi/reference/contracts/error-codes.html#error-codes
@@ -45,7 +45,7 @@ contract TopupTest is BaseFixture {
         (bool canExec, bytes memory execPayload) = roboModule.checker();
 
         assertTrue(canExec);
-        assertEq(bytes4(execPayload), SAFE_TOP_UP_SELECTOR);
+        assertEq(bytes4(execPayload), ADJUST_POOL_SELECTOR);
 
         uint256 initialEureBal = IERC20(EURE).balanceOf(GNOSIS_SAFE);
 
@@ -73,6 +73,6 @@ contract TopupTest is BaseFixture {
 
         tokenAmountTargetToMove_ = eureBalance - maxRefill + 100e18;
 
-        roboModule.transferErc20(EURE, tokenAmountTargetToMove_, WETH);
+        // roboModule.transferErc20(EURE, tokenAmountTargetToMove_, WETH);
     }
 }

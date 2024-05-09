@@ -48,7 +48,7 @@ contract BaseFixture is Test {
 
     address constant EURE_MINTER = 0x882145B1F9764372125861727d7bE616c84010Ef;
 
-    bytes4 constant EXEC_TOP_UP_SELECTOR = 0xafd20f5c;
+    bytes4 constant ADJUST_POOL_SELECTOR = 0xafd738d0;
 
     // gnosis pay modules
     Delay delayModule;
