@@ -17,9 +17,9 @@ contract RoboSaverVirtualModule {
     /// @notice Enum representing the different possible top-up types.
     /// @custom:value0 SAFE Top-up of the $EURe balance in the card.
     /// @custom:value1 BPT Top-up of the BPT pool with the excess $EURe funds.
-    enum TopupType {
-        SAFE,
-        BPT
+    enum PoolAction {
+        WITHDRAW,
+        DEPOSIT
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -98,24 +98,24 @@ contract RoboSaverVirtualModule {
         if (balance < dailyAllowance) {
             // @note it will queue the tx for topup $EURe
             uint256 deficit = dailyAllowance - balance;
-            return (true, abi.encodeWithSelector(this.execTopup.selector, TopupType.SAFE, card, deficit));
+            return (true, abi.encodeWithSelector(this.execTopup.selector, PoolAction.WITHDRAW, card, deficit));
         } else if (balance > dailyAllowance + buffer) {
             // @note it will queue the tx for topup BPT with the excess $EURe funds
             uint256 surplus = balance - (dailyAllowance + buffer);
-            return (true, abi.encodeWithSelector(this.execTopup.selector, TopupType.BPT, card, surplus));
+            return (true, abi.encodeWithSelector(this.execTopup.selector, PoolAction.DEPOSIT, card, surplus));
         }
 
         return (false, bytes("No queue tx and sufficient balance"));
     }
 
-    function execTopup(TopupType _type, address _card, uint256 _deficit)
+    function execTopup(PoolAction _action, address _card, uint256 _deficit)
         external
         onlyKeeper
         returns (bytes memory execPayload_)
     {
-        if (_type == TopupType.SAFE) {
+        if (_action == PoolAction.WITHDRAW) {
             execPayload_ = abi.encode(_safeTopup(_card, _deficit));
-        } else if (_type == TopupType.BPT) {
+        } else if (_action == PoolAction.DEPOSIT) {
             execPayload_ = abi.encode(_bptTopup(_card, _deficit));
         }
     }
