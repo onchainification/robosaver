@@ -26,9 +26,9 @@ contract TopupBptTest is BaseFixture {
         assertEq(selector, EXEC_TOP_UP_SELECTOR);
 
         vm.prank(TOP_UP_AGENT);
-        (RoboSaverVirtualModule.TopupType _type, address _card, uint256 _topupAmount) =
-            abi.decode(dataWithoutSelector, (RoboSaverVirtualModule.TopupType, address, uint256));
-        bytes memory execPayload_ = roboModule.execTopup(_type, _card, _topupAmount);
+        (RoboSaverVirtualModule.PoolAction _action, address _card, uint256 _topupAmount) =
+            abi.decode(dataWithoutSelector, (RoboSaverVirtualModule.PoolAction, address, uint256));
+        bytes memory execPayload_ = roboModule.execTopup(_action, _card, _topupAmount);
 
         vm.warp(block.timestamp + COOL_DOWN_PERIOD);
 
