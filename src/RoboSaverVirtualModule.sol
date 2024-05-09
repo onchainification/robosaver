@@ -60,8 +60,8 @@ contract RoboSaverVirtualModule {
                                        EVENTS
     //////////////////////////////////////////////////////////////////////////*/
 
-    event SafeTopup(address indexed safe, uint256 amount, uint256 timestamp);
-    event BptTopup(address indexed safe, uint256 amount, uint256 timestamp);
+    event PoolWithdrawal(address indexed safe, uint256 amount, uint256 timestamp);
+    event PoolDeposit(address indexed safe, uint256 amount, uint256 timestamp);
 
     /*//////////////////////////////////////////////////////////////////////////
                                      CONSTRUCTOR
@@ -98,25 +98,25 @@ contract RoboSaverVirtualModule {
         if (balance < dailyAllowance) {
             // @note it will queue the tx for topup $EURe
             uint256 deficit = dailyAllowance - balance;
-            return (true, abi.encodeWithSelector(this.execTopup.selector, PoolAction.WITHDRAW, card, deficit));
+            return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.WITHDRAW, card, deficit));
         } else if (balance > dailyAllowance + buffer) {
             // @note it will queue the tx for topup BPT with the excess $EURe funds
             uint256 surplus = balance - (dailyAllowance + buffer);
-            return (true, abi.encodeWithSelector(this.execTopup.selector, PoolAction.DEPOSIT, card, surplus));
+            return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.DEPOSIT, card, surplus));
         }
 
         return (false, bytes("No queue tx and sufficient balance"));
     }
 
-    function execTopup(PoolAction _action, address _card, uint256 _deficit)
+    function adjustPool(PoolAction _action, address _card, uint256 _amount)
         external
         onlyKeeper
         returns (bytes memory execPayload_)
     {
         if (_action == PoolAction.WITHDRAW) {
-            execPayload_ = abi.encode(_safeTopup(_card, _deficit));
+            execPayload_ = abi.encode(_poolWithdrawal(_card, _amount));
         } else if (_action == PoolAction.DEPOSIT) {
-            execPayload_ = abi.encode(_bptTopup(_card, _deficit));
+            execPayload_ = abi.encode(_poolDeposit(_card, _amount));
         }
     }
 
@@ -127,7 +127,10 @@ contract RoboSaverVirtualModule {
     /// @notice siphon eure out of the bpt pool
     /// @param _card The address of the card in which the virtual module is withdrawing in behalf of.
     /// @param _deficit The amount of eure to withdraw from the bpt pool.
-    function _safeTopup(address _card, uint256 _deficit) internal returns (IVault.ExitPoolRequest memory request_) {
+    function _poolWithdrawal(address _card, uint256 _deficit)
+        internal
+        returns (IVault.ExitPoolRequest memory request_)
+    {
         /// @dev all asset (related) arrays should always follow this (alphabetical) order
         IAsset[] memory assets = new IAsset[](3);
         assets[0] = IAsset(address(STEUR));
@@ -152,13 +155,13 @@ contract RoboSaverVirtualModule {
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
         delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, payload, 0);
 
-        emit SafeTopup(_card, _deficit, block.timestamp);
+        emit PoolWithdrawal(_card, _deficit, block.timestamp);
     }
 
     /// @notice siphon eure into the bpt pool
     /// @param _card The address of the card in which the virtual module is depositing in behalf of.
     /// @param _surplus The amount of eure to deposit into the bpt pool.
-    function _bptTopup(address _card, uint256 _surplus) internal returns (IMulticall.Call[] memory) {
+    function _poolDeposit(address _card, uint256 _surplus) internal returns (IMulticall.Call[] memory) {
         // 1. approval of eure
         bytes memory approvalPayload =
             abi.encodeWithSignature("approve(address,uint256)", address(BALANCER_VAULT), _surplus);
@@ -194,7 +197,7 @@ contract RoboSaverVirtualModule {
 
         delayModule.execTransactionFromModule(MULTICALL3, 0, multiCallPayalod, 1);
 
-        emit BptTopup(_card, _surplus, block.timestamp);
+        emit PoolDeposit(_card, _surplus, block.timestamp);
 
         return calls_;
     }
