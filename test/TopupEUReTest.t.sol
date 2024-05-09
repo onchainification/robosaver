@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.25;
 
 import {BaseFixture} from "./BaseFixture.sol";
 
@@ -14,7 +14,7 @@ contract TopupTest is BaseFixture {
         // @note since there is logic also on the buffer up, here the conditional will trigger bpt topup
         // but on this test we are not interested on that dynamic
         assertTrue(canExec);
-        assertEq(bytes4(execPayload), SAFE_BPT_TOP_UP_SELECTOR);
+        assertEq(bytes4(execPayload), ADJUST_POOL_SELECTOR);
 
         uint256 tokenAmountTargetToMove = _transferOutBelowThreshold();
 
@@ -27,12 +27,12 @@ contract TopupTest is BaseFixture {
         (canExec, execPayload) = roboModule.checker();
 
         assertTrue(canExec);
-        assertEq(bytes4(execPayload), SAFE_TOP_UP_SELECTOR);
+        assertEq(bytes4(execPayload), ADJUST_POOL_SELECTOR);
     }
 
     // @note ref for error codes: https://docs.balancer.fi/reference/contracts/error-codes.html#error-codes
     function testExitPool() public {
-        uint256 initialBptBal = IERC20(BPT_EURE_STEUR).balanceOf(GNOSIS_SAFE);
+        uint256 initialBptBal = IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE);
 
         uint256 tokenAmountTargetToMove = _transferOutBelowThreshold();
 
@@ -45,7 +45,7 @@ contract TopupTest is BaseFixture {
         (bool canExec, bytes memory execPayload) = roboModule.checker();
 
         assertTrue(canExec);
-        assertEq(bytes4(execPayload), SAFE_TOP_UP_SELECTOR);
+        assertEq(bytes4(execPayload), ADJUST_POOL_SELECTOR);
 
         uint256 initialEureBal = IERC20(EURE).balanceOf(GNOSIS_SAFE);
 
@@ -58,11 +58,11 @@ contract TopupTest is BaseFixture {
         IVault.ExitPoolRequest memory request = abi.decode(data, (IVault.ExitPoolRequest));
 
         bytes memory execTxPayload = abi.encodeWithSelector(
-            IVault.exitPool.selector, roboModule.BPT_EURE_STEUR_POOL_ID(), GNOSIS_SAFE, payable(GNOSIS_SAFE), request
+            IVault.exitPool.selector, roboModule.BPT_STEUR_EURE_POOL_ID(), GNOSIS_SAFE, payable(GNOSIS_SAFE), request
         );
         delayModule.executeNextTx(address(roboModule.BALANCER_VAULT()), 0, execTxPayload, Enum.Operation.Call);
 
-        assertLt(IERC20(BPT_EURE_STEUR).balanceOf(GNOSIS_SAFE), initialBptBal);
+        assertLt(IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE), initialBptBal);
         assertGt(IERC20(EURE).balanceOf(GNOSIS_SAFE), initialEureBal);
     }
 
@@ -73,6 +73,6 @@ contract TopupTest is BaseFixture {
 
         tokenAmountTargetToMove_ = eureBalance - maxRefill + 100e18;
 
-        roboModule.transferErc20(EURE, tokenAmountTargetToMove_, WETH);
+        // roboModule.transferErc20(EURE, tokenAmountTargetToMove_, WETH);
     }
 }

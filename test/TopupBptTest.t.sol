@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.25;
 
 import {console} from "forge-std/Test.sol";
 
@@ -16,19 +16,19 @@ import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
 contract TopupBptTest is BaseFixture {
     function testTopupBpt() public {
         uint256 initialEureBal = IERC20(EURE).balanceOf(GNOSIS_SAFE);
-        uint256 initialBptBal = IERC20(BPT_EURE_STEUR).balanceOf(GNOSIS_SAFE);
+        uint256 initialBptBal = IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE);
 
         (bool canExec, bytes memory execPayload) = roboModule.checker();
         (bytes memory dataWithoutSelector, bytes4 selector) = _extractEncodeDataWithoutSelector(execPayload);
 
         // since initially it was minted 1000 it should be way above the buffer
         assertTrue(canExec);
-        assertEq(selector, EXEC_TOP_UP_SELECTOR);
+        assertEq(selector, ADJUST_POOL_SELECTOR);
 
         vm.prank(TOP_UP_AGENT);
-        (RoboSaverVirtualModule.TopupType _type, address _avatar, uint256 _topupAmount) =
-            abi.decode(dataWithoutSelector, (RoboSaverVirtualModule.TopupType, address, uint256));
-        bytes memory execPayload_ = roboModule.execTopup(_type, _avatar, _topupAmount);
+        (RoboSaverVirtualModule.PoolAction _action, address _card, uint256 _amount) =
+            abi.decode(dataWithoutSelector, (RoboSaverVirtualModule.PoolAction, address, uint256));
+        bytes memory execPayload_ = roboModule.adjustPool(_action, _card, _amount);
 
         vm.warp(block.timestamp + COOL_DOWN_PERIOD);
 
@@ -38,9 +38,9 @@ contract TopupBptTest is BaseFixture {
         IMulticall.Call[] memory calls_ = abi.decode(execPayload_, (IMulticall.Call[]));
 
         bytes memory multiCallPayalod = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
-        delayModule.executeNextTx(roboModule.MULTICALL_V3(), 0, multiCallPayalod, Enum.Operation.DelegateCall);
+        delayModule.executeNextTx(roboModule.MULTICALL3(), 0, multiCallPayalod, Enum.Operation.DelegateCall);
 
         assertLt(IERC20(EURE).balanceOf(GNOSIS_SAFE), initialEureBal);
-        assertGt(IERC20(BPT_EURE_STEUR).balanceOf(GNOSIS_SAFE), initialBptBal);
+        assertGt(IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE), initialBptBal);
     }
 }
