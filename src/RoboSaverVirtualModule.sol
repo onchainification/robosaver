@@ -9,14 +9,17 @@ import {IAsset} from "@balancer-v2/interfaces/contracts/vault/IAsset.sol";
 import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
 import "@balancer-v2/interfaces/contracts/pool-stable/StablePoolUserData.sol";
 
+/// @title RoboSaver: turn your Gnosis Pay card into an automated savings account!
+/// @author onchainification.xyz
+/// @notice Deposit and withdraw $EURe from your Gnosis Pay card to a liquidity pool
 contract RoboSaverVirtualModule {
     /*//////////////////////////////////////////////////////////////////////////
                                      DATA TYPES
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @notice Enum representing the different possible top-up types.
-    /// @custom:value0 SAFE Top-up of the $EURe balance in the card.
-    /// @custom:value1 BPT Top-up of the BPT pool with the excess $EURe funds.
+    /// @notice Enum representing the different types of pool actions
+    /// @custom:value0 WITHDRAW Withdraw $EURe from the pool to the card
+    /// @custom:value1 DEPOSIT Deposit $EURe from the card into the pool
     enum PoolAction {
         WITHDRAW,
         DEPOSIT
@@ -78,34 +81,38 @@ contract RoboSaverVirtualModule {
                                       MODIFIERS
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @notice Checks whether a call is authorized to trigger top-up or exec queue txs
+    /// @notice Enforce that the function is called by the keeper only
     modifier onlyKeeper() {
         if (msg.sender != keeper) revert NotKeeper(msg.sender);
         _;
     }
 
     /*//////////////////////////////////////////////////////////////////////////
-                    EXTERNAL METHODS: TOP-UP AGENTS
+                                  EXTERNAL METHODS
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @dev Check condition and determine whether a task should be executed by Gelato.
+    /// @notice Check if there is a surplus or deficit of $EURe on the card
+    /// @return canExec Whether a transaction needs to be
+    /// @return execPayload The payload of the needed transaction
+    /// TODO: is this return structure the most efficient? why not just return action, card and amount?
+    /// TODO: is card even needed to be passed around? maybe make it part of the constructor instead?
     function checker() external view returns (bool canExec, bytes memory execPayload) {
         address card = delayModule.avatar();
-
         uint256 balance = EURE.balanceOf(card);
         (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
         if (balance < dailyAllowance) {
-            // @note it will queue the tx for topup $EURe
+            /// @notice there is a deficit; we need to withdraw from the pool
             uint256 deficit = dailyAllowance - balance;
             return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.WITHDRAW, card, deficit));
         } else if (balance > dailyAllowance + buffer) {
-            // @note it will queue the tx for topup BPT with the excess $EURe funds
+            /// @notice there is a surplus; we need to deposit into the pool
             uint256 surplus = balance - (dailyAllowance + buffer);
             return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.DEPOSIT, card, surplus));
         }
 
-        return (false, bytes("No queue tx and sufficient balance"));
+        /// @notice neither deficit nor surplus; no action needed
+        return (false, bytes("Neither deficit nor surplus; no action needed"));
     }
 
     function adjustPool(PoolAction _action, address _card, uint256 _amount)
