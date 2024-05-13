@@ -4,6 +4,7 @@ on: [workflow_dispatch, pull_request]
 
 env:
   FOUNDRY_PROFILE: ci
+  GNOSIS_RPC_URL: ${{ secrets.GNOSIS_RPC_URL }}
 
 jobs:
   check:
