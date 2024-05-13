@@ -9,6 +9,8 @@ import {Bouncer} from "@gnosispay-kit/Bouncer.sol";
 
 import {IERC20} from "@gnosispay-kit/interfaces/IERC20.sol";
 
+import {Enum} from "../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
+
 import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
 
 import {ISafe} from "@gnosispay-kit/interfaces/ISafe.sol";
