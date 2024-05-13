@@ -63,8 +63,8 @@ contract RoboSaverVirtualModule {
                                        EVENTS
     //////////////////////////////////////////////////////////////////////////*/
 
-    event PoolWithdrawal(address indexed safe, uint256 amount, uint256 timestamp);
-    event PoolDeposit(address indexed safe, uint256 amount, uint256 timestamp);
+    event PoolWithdrawalQueued(address indexed safe, uint256 amount, uint256 timestamp);
+    event PoolDepositQueued(address indexed safe, uint256 amount, uint256 timestamp);
 
     /*//////////////////////////////////////////////////////////////////////////
                                      CONSTRUCTOR
@@ -128,41 +128,43 @@ contract RoboSaverVirtualModule {
     }
 
     /*//////////////////////////////////////////////////////////////////////////
-                    INTERNAL METHODS: TOP-UPS & TX QUEUING
+                                   INTERNAL METHODS
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @notice siphon eure out of the bpt pool
-    /// @param _card The address of the card in which the virtual module is withdrawing in behalf of.
-    /// @param _deficit The amount of eure to withdraw from the bpt pool.
+    /// @notice Withdraw $EURe from the pool
+    /// @param _card The address of the card to withdraw to
+    /// @param _deficit The amount of $EURe to withdraw from the pool
+    /// @return request_ The exit pool request as per Balancer's interface
     function _poolWithdrawal(address _card, uint256 _deficit)
         internal
         returns (IVault.ExitPoolRequest memory request_)
     {
-        /// @dev all asset (related) arrays should always follow this (alphabetical) order
+        /// @dev All asset related arrays should always follow this (alphabetical) order
         IAsset[] memory assets = new IAsset[](3);
         assets[0] = IAsset(address(STEUR));
         assets[1] = IAsset(address(BPT_STEUR_EURE));
         assets[2] = IAsset(address(EURE));
 
-        /// allow for one wei of slippage
+        /// @dev Allow for one wei of slippage
         uint256[] memory minAmountsOut = new uint256[](3);
         minAmountsOut[2] = _deficit - 1;
 
-        /// ['uint256', 'uint256[]', 'uint256']
-        /// [BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn]
+        /// @dev For some reason the `amountsOut` array does NOT include the bpt token itself
         uint256[] memory amountsOut = new uint256[](2);
         amountsOut[1] = _deficit;
+
+        /// TODO: do we need more math to calculate the exact amount of bpt to withdraw?
+        /// TODO: if not, explain why not in a @dev comment here
         bytes memory userData =
             abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, type(uint256).max);
 
+        /// @dev Queue the transaction into the delay module
         request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
-
-        /// siphon eure out of pool
         bytes memory payload =
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
         delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, payload, 0);
 
-        emit PoolWithdrawal(_card, _deficit, block.timestamp);
+        emit PoolWithdrawalQueued(_card, _deficit, block.timestamp);
     }
 
     /// @notice siphon eure into the bpt pool
@@ -204,7 +206,7 @@ contract RoboSaverVirtualModule {
 
         delayModule.execTransactionFromModule(MULTICALL3, 0, multiCallPayalod, 1);
 
-        emit PoolDeposit(_card, _surplus, block.timestamp);
+        emit PoolDepositQueued(_card, _surplus, block.timestamp);
 
         return calls_;
     }
