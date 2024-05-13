@@ -24,9 +24,11 @@ contract TopupBptTest is BaseFixture {
             abi.decode(dataWithoutSelector, (RoboSaverVirtualModule.PoolAction, address, uint256));
 
         // since initially it was minted 1000 it should be way above the buffer
-        assertTrue(canExec);
-        assertEq(selector, ADJUST_POOL_SELECTOR);
-        assertEq(uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.DEPOSIT));
+        assertTrue(canExec, "CanExec: not executable");
+        assertEq(selector, ADJUST_POOL_SELECTOR, "Selector: not adjust pool (0xafd738d0)");
+        assertEq(
+            uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.DEPOSIT), "PoolAction: not depositing into the pool"
+        );
 
         vm.prank(TOP_UP_AGENT);
         bytes memory execPayload_ = roboModule.adjustPool(_action, _card, _amount);
@@ -41,7 +43,15 @@ contract TopupBptTest is BaseFixture {
         bytes memory multiCallPayalod = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
         delayModule.executeNextTx(roboModule.MULTICALL3(), 0, multiCallPayalod, Enum.Operation.DelegateCall);
 
-        assertLt(IERC20(EURE).balanceOf(GNOSIS_SAFE), initialEureBal);
-        assertGt(IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE), initialBptBal);
+        assertLt(
+            IERC20(EURE).balanceOf(GNOSIS_SAFE),
+            initialEureBal,
+            "EURE balance: did not decrease after depositing into the pool"
+        );
+        assertGt(
+            IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE),
+            initialBptBal,
+            "BPT balance: did not increase after depositing into the pool"
+        );
     }
 }

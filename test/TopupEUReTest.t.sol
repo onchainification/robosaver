@@ -28,8 +28,8 @@ contract TopupTest is BaseFixture {
 
         (canExec, execPayload) = roboModule.checker();
 
-        assertTrue(canExec);
-        assertEq(bytes4(execPayload), ADJUST_POOL_SELECTOR);
+        assertTrue(canExec, "CanExec: not executable");
+        assertEq(bytes4(execPayload), ADJUST_POOL_SELECTOR, "Selector: not adjust pool (0xafd738d0)");
     }
 
     // @note ref for error codes: https://docs.balancer.fi/reference/contracts/error-codes.html#error-codes
@@ -49,9 +49,11 @@ contract TopupTest is BaseFixture {
         (RoboSaverVirtualModule.PoolAction _action, address _card, uint256 _amount) =
             abi.decode(dataWithoutSelector, (RoboSaverVirtualModule.PoolAction, address, uint256));
 
-        assertTrue(canExec);
-        assertEq(selector, ADJUST_POOL_SELECTOR);
-        assertEq(uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.WITHDRAW));
+        assertTrue(canExec, "CanExec: not executable");
+        assertEq(selector, ADJUST_POOL_SELECTOR, "Selector: not adjust pool (0xafd738d0)");
+        assertEq(
+            uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.WITHDRAW), "PoolAction: not withdrawal from pool"
+        );
 
         uint256 initialEureBal = IERC20(EURE).balanceOf(GNOSIS_SAFE);
 
@@ -67,7 +69,15 @@ contract TopupTest is BaseFixture {
         );
         delayModule.executeNextTx(address(roboModule.BALANCER_VAULT()), 0, execTxPayload, Enum.Operation.Call);
 
-        assertLt(IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE), initialBptBal);
-        assertGt(IERC20(EURE).balanceOf(GNOSIS_SAFE), initialEureBal);
+        assertLt(
+            IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE),
+            initialBptBal,
+            "BPT balance: not decreased after withdrawing from the pool"
+        );
+        assertGt(
+            IERC20(EURE).balanceOf(GNOSIS_SAFE),
+            initialEureBal,
+            "EURE balance: not increased after withdrawing from the pool"
+        );
     }
 }
