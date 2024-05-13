@@ -13,10 +13,8 @@ contract TopupTest is BaseFixture {
     function testTopupChecker() public {
         (bool canExec, bytes memory execPayload) = roboModule.checker();
 
-        // @note since there is logic also on the buffer up, here the conditional will trigger bpt topup
-        // but on this test we are not interested on that dynamic
-        assertTrue(canExec);
-        assertEq(bytes4(execPayload), ADJUST_POOL_SELECTOR);
+        assertFalse(canExec);
+        assertEq(execPayload, bytes("No queue tx and sufficient balance"));
 
         uint256 tokenAmountTargetToMove = _transferOutBelowThreshold();
 

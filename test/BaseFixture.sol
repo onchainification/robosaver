@@ -23,7 +23,8 @@ contract BaseFixture is Test {
 
     address constant TOP_UP_AGENT = address(747834834);
 
-    uint256 constant EURE_TO_MINT = 1_000e18;
+    // @note eure mint: daily allowance + buffer - 1 (to trigger a state of `canExec` = false)
+    uint256 constant EURE_TO_MINT = 240e18;
     uint128 constant MIN_EURE_ALLOWANCE = 200e18;
     uint256 constant EURE_BUFFER = 50e18;
 
