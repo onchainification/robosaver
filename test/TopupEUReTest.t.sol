@@ -7,6 +7,8 @@ import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
 
 import {Enum} from "../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 
+import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
+
 contract TopupTest is BaseFixture {
     function testTopupChecker() public {
         (bool canExec, bytes memory execPayload) = roboModule.checker();
@@ -43,6 +45,7 @@ contract TopupTest is BaseFixture {
         delayModule.executeNextTx(EURE, 0, payload, Enum.Operation.Call);
 
         (bool canExec, bytes memory execPayload) = roboModule.checker();
+        (bytes memory dataWithoutSelector, bytes4 selector) = _extractEncodeDataWithoutSelector(execPayload);
 
         assertTrue(canExec);
         assertEq(bytes4(execPayload), ADJUST_POOL_SELECTOR);
@@ -50,12 +53,13 @@ contract TopupTest is BaseFixture {
         uint256 initialEureBal = IERC20(EURE).balanceOf(GNOSIS_SAFE);
 
         vm.prank(TOP_UP_AGENT);
-        (bool success, bytes memory data) = address(roboModule).call(execPayload);
-        assertTrue(success);
+        (RoboSaverVirtualModule.PoolAction _action, address _card, uint256 _amount) =
+            abi.decode(dataWithoutSelector, (RoboSaverVirtualModule.PoolAction, address, uint256));
+        bytes memory execPayload_ = roboModule.adjustPool(_action, _card, _amount);
 
         vm.warp(block.timestamp + COOL_DOWN_PERIOD);
 
-        IVault.ExitPoolRequest memory request = abi.decode(data, (IVault.ExitPoolRequest));
+        IVault.ExitPoolRequest memory request = abi.decode(execPayload_, (IVault.ExitPoolRequest));
 
         bytes memory execTxPayload = abi.encodeWithSelector(
             IVault.exitPool.selector, roboModule.BPT_STEUR_EURE_POOL_ID(), GNOSIS_SAFE, payable(GNOSIS_SAFE), request
@@ -73,6 +77,10 @@ contract TopupTest is BaseFixture {
 
         tokenAmountTargetToMove_ = eureBalance - maxRefill + 100e18;
 
-        // roboModule.transferErc20(EURE, tokenAmountTargetToMove_, WETH);
+        bytes memory payloadErc20Transfer =
+            abi.encodeWithSignature("transfer(address,uint256)", WETH, tokenAmountTargetToMove_);
+
+        vm.prank(GNOSIS_SAFE);
+        delayModule.execTransactionFromModule(EURE, 0, payloadErc20Transfer, Enum.Operation.Call);
     }
 }
