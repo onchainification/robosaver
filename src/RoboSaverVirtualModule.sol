@@ -94,8 +94,8 @@ contract RoboSaverVirtualModule {
     /// @notice Check if there is a surplus or deficit of $EURe on the card
     /// @return canExec Whether a transaction needs to be
     /// @return execPayload The payload of the needed transaction
-    /// TODO: is this return structure the most efficient? why not just return action, card and amount?
-    /// TODO: is card even needed to be passed around? maybe make it part of the constructor instead?
+    /// @todo is this return structure the most efficient? why not just return action, card and amount?
+    /// @todo is card even needed to be passed around? maybe make it part of the constructor instead?
     function checker() external view returns (bool canExec, bytes memory execPayload) {
         address card = delayModule.avatar();
         uint256 balance = EURE.balanceOf(card);
@@ -158,8 +158,8 @@ contract RoboSaverVirtualModule {
         uint256[] memory amountsOut = new uint256[](2);
         amountsOut[1] = _deficit;
 
-        /// TODO: do we need more math to calculate the exact amount of bpt to withdraw?
-        /// TODO: if not, explain why not in a @dev comment here
+        /// @todo do we need more math to calculate the exact amount of bpt to withdraw?
+        /// @todo if not, explain why not in a @dev comment here
         bytes memory userData =
             abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, type(uint256).max);
 
@@ -190,7 +190,7 @@ contract RoboSaverVirtualModule {
         uint256[] memory maxAmountsIn = new uint256[](3);
         maxAmountsIn[2] = _surplus;
 
-        /// TODO: is there an assumption here that 1 bpt = 1 eure? is that always correct?
+        /// @todo is there an assumption here that 1 bpt = 1 eure? is that always correct?
         uint256[] memory amountsIn = new uint256[](2);
         amountsIn[1] = _surplus;
         uint256 minimumBPT = (_surplus * SLIPP) / MAX_BPS;
