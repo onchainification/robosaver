@@ -69,18 +69,4 @@ contract TopupTest is BaseFixture {
         assertLt(IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE), initialBptBal);
         assertGt(IERC20(EURE).balanceOf(GNOSIS_SAFE), initialEureBal);
     }
-
-    function _transferOutBelowThreshold() internal returns (uint256 tokenAmountTargetToMove_) {
-        uint256 eureBalance = IERC20(EURE).balanceOf(GNOSIS_SAFE);
-
-        (, uint128 maxRefill,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
-
-        tokenAmountTargetToMove_ = eureBalance - maxRefill + 100e18;
-
-        bytes memory payloadErc20Transfer =
-            abi.encodeWithSignature("transfer(address,uint256)", WETH, tokenAmountTargetToMove_);
-
-        vm.prank(GNOSIS_SAFE);
-        delayModule.execTransactionFromModule(EURE, 0, payloadErc20Transfer, Enum.Operation.Call);
-    }
 }

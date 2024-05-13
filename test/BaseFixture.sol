@@ -133,4 +133,19 @@ contract BaseFixture is Test {
         bytes4 selector = bytes4(myData);
         return (dataWithoutSelector, selector);
     }
+
+    /// @notice Helper to transfer out EURE from the safe to simulate being below the threshold of daily allowance
+    function _transferOutBelowThreshold() internal returns (uint256 tokenAmountTargetToMove_) {
+        uint256 eureBalance = IERC20(EURE).balanceOf(GNOSIS_SAFE);
+
+        (, uint128 maxRefill,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
+
+        tokenAmountTargetToMove_ = eureBalance - maxRefill + 100e18;
+
+        bytes memory payloadErc20Transfer =
+            abi.encodeWithSignature("transfer(address,uint256)", WETH, tokenAmountTargetToMove_);
+
+        vm.prank(GNOSIS_SAFE);
+        delayModule.execTransactionFromModule(EURE, 0, payloadErc20Transfer, Enum.Operation.Call);
+    }
 }
