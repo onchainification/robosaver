@@ -48,7 +48,7 @@ contract TopupTest is BaseFixture {
         (bytes memory dataWithoutSelector, bytes4 selector) = _extractEncodeDataWithoutSelector(execPayload);
 
         assertTrue(canExec);
-        assertEq(bytes4(execPayload), ADJUST_POOL_SELECTOR);
+        assertEq(selector, ADJUST_POOL_SELECTOR);
 
         uint256 initialEureBal = IERC20(EURE).balanceOf(GNOSIS_SAFE);
 
