@@ -115,6 +115,11 @@ contract RoboSaverVirtualModule {
         return (false, bytes("Neither deficit nor surplus; no action needed"));
     }
 
+    /// @notice Adjust the pool by depositing or withdrawing $EURe
+    /// @param _action The action to take: deposit or withdraw
+    /// @param _card The address of the card to deposit or withdraw from
+    /// @param _amount The amount of $EURe to deposit or withdraw
+    /// @return execPayload_ The payload of the transaction to execute
     function adjustPool(PoolAction _action, address _card, uint256 _amount)
         external
         onlyKeeper
