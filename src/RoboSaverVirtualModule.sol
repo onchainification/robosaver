@@ -172,15 +172,16 @@ contract RoboSaverVirtualModule {
         emit PoolWithdrawalQueued(_card, _deficit, block.timestamp);
     }
 
-    /// @notice siphon eure into the bpt pool
-    /// @param _card The address of the card in which the virtual module is depositing in behalf of.
-    /// @param _surplus The amount of eure to deposit into the bpt pool.
+    /// @notice Deposit $EURe into the pool
+    /// @param _card The address of the card to deposit from
+    /// @param _surplus The amount of $EURe to deposit into the pool
+    /// @return calls_ The calls needed approve $EURe and join the pool
     function _poolDeposit(address _card, uint256 _surplus) internal returns (IMulticall.Call[] memory) {
-        // 1. approval of eure
+        /// @dev Approve our $EURe to the Balancer Vault
         bytes memory approvalPayload =
             abi.encodeWithSignature("approve(address,uint256)", address(BALANCER_VAULT), _surplus);
 
-        // 2. join bpt
+        /// @dev Prepare the join pool request
         IAsset[] memory assets = new IAsset[](3);
         assets[0] = IAsset(address(STEUR));
         assets[1] = IAsset(address(BPT_STEUR_EURE));
@@ -189,8 +190,7 @@ contract RoboSaverVirtualModule {
         uint256[] memory maxAmountsIn = new uint256[](3);
         maxAmountsIn[2] = _surplus;
 
-        // ['uint256', 'uint256[]', 'uint256']
-        // [EXACT_TOKENS_IN_FOR_BPT_OUT, amountsIn, minimumBPT]
+        /// TODO: is there an assumption here that 1 bpt = 1 eure? is that always correct?
         uint256[] memory amountsIn = new uint256[](2);
         amountsIn[1] = _surplus;
         uint256 minimumBPT = (_surplus * SLIPP) / MAX_BPS;
@@ -202,14 +202,14 @@ contract RoboSaverVirtualModule {
         bytes memory joinPoolPayload =
             abi.encodeWithSelector(IVault.joinPool.selector, BPT_STEUR_EURE_POOL_ID, _card, _card, request);
 
-        // 3. batch approval and join into a multicall
+        /// @dev Batch approval and pool join into a multicall
         IMulticall.Call[] memory calls_ = new IMulticall.Call[](2);
         calls_[0] = IMulticall.Call(address(EURE), approvalPayload);
         calls_[1] = IMulticall.Call(address(BALANCER_VAULT), joinPoolPayload);
+        bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
 
-        bytes memory multiCallPayalod = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
-
-        delayModule.execTransactionFromModule(MULTICALL3, 0, multiCallPayalod, 1);
+        /// @dev Queue the transaction into the delay module
+        delayModule.execTransactionFromModule(MULTICALL3, 0, multicallPayload, 1);
 
         emit PoolDepositQueued(_card, _surplus, block.timestamp);
 
