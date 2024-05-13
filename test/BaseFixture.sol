@@ -65,8 +65,7 @@ contract BaseFixture is Test {
     RoboSaverVirtualModule roboModule;
 
     function setUp() public virtual {
-        // https://gnosisscan.io/block/33921763
-        vm.createSelectFork("gnosis", 33921763);
+        vm.createSelectFork("gnosis");
 
         safe = ISafe(payable(GNOSIS_SAFE));
 
