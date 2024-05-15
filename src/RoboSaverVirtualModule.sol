@@ -33,6 +33,7 @@ contract RoboSaverVirtualModule {
     uint256 constant MAX_BPS = 10_000;
 
     address public constant MULTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
+    address public immutable CARD;
 
     IERC20 constant STEUR = IERC20(0x004626A008B1aCdC4c74ab51644093b155e59A23);
     IERC20 constant EURE = IERC20(0xcB444e90D8198415266c6a2724b7900fb12FC56E);
@@ -42,8 +43,6 @@ contract RoboSaverVirtualModule {
 
     bytes32 public constant BPT_STEUR_EURE_POOL_ID = 0x06135a9ae830476d3a941bae9010b63732a055f4000000000000000000000065;
     bytes32 constant SET_ALLOWANCE_KEY = keccak256("SPENDING_ALLOWANCE");
-
-    address public immutable CARD;
 
     /*//////////////////////////////////////////////////////////////////////////
                                    PUBLIC STORAGE
@@ -56,17 +55,27 @@ contract RoboSaverVirtualModule {
     uint256 public buffer;
 
     /*//////////////////////////////////////////////////////////////////////////
+                                       EVENTS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    event PoolWithdrawalQueued(address indexed safe, uint256 amount, uint256 timestamp);
+    event PoolDepositQueued(address indexed safe, uint256 amount, uint256 timestamp);
+
+    /*//////////////////////////////////////////////////////////////////////////
                                        ERRORS
     //////////////////////////////////////////////////////////////////////////*/
 
     error NotKeeper(address agent);
 
     /*//////////////////////////////////////////////////////////////////////////
-                                       EVENTS
+                                      MODIFIERS
     //////////////////////////////////////////////////////////////////////////*/
 
-    event PoolWithdrawalQueued(address indexed safe, uint256 amount, uint256 timestamp);
-    event PoolDepositQueued(address indexed safe, uint256 amount, uint256 timestamp);
+    /// @notice Enforce that the function is called by the keeper only
+    modifier onlyKeeper() {
+        if (msg.sender != keeper) revert NotKeeper(msg.sender);
+        _;
+    }
 
     /*//////////////////////////////////////////////////////////////////////////
                                      CONSTRUCTOR
@@ -79,16 +88,6 @@ contract RoboSaverVirtualModule {
         buffer = _buffer;
 
         CARD = delayModule.avatar();
-    }
-
-    /*//////////////////////////////////////////////////////////////////////////
-                                      MODIFIERS
-    //////////////////////////////////////////////////////////////////////////*/
-
-    /// @notice Enforce that the function is called by the keeper only
-    modifier onlyKeeper() {
-        if (msg.sender != keeper) revert NotKeeper(msg.sender);
-        _;
     }
 
     /*//////////////////////////////////////////////////////////////////////////
