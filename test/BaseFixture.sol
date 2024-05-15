@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.25;
 
 import "forge-std/Test.sol";
 
@@ -8,6 +8,8 @@ import {Roles} from "@roles-module/Roles.sol";
 import {Bouncer} from "@gnosispay-kit/Bouncer.sol";
 
 import {IERC20} from "@gnosispay-kit/interfaces/IERC20.sol";
+
+import {Enum} from "../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 
 import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
 
@@ -21,7 +23,8 @@ contract BaseFixture is Test {
 
     address constant TOP_UP_AGENT = address(747834834);
 
-    uint256 constant EURE_TO_MINT = 1_000e18;
+    // @note eure mint: daily allowance + buffer - 1 (to trigger a state of `canExec` = false)
+    uint256 constant EURE_TO_MINT = 240e18;
     uint128 constant MIN_EURE_ALLOWANCE = 200e18;
     uint256 constant EURE_BUFFER = 50e18;
 
@@ -44,12 +47,11 @@ contract BaseFixture is Test {
     // tokens
     address constant EURE = 0xcB444e90D8198415266c6a2724b7900fb12FC56E;
     address constant WETH = 0x6A023CCd1ff6F2045C3309768eAd9E68F978f6e1;
-    address constant BPT_EURE_STEUR = 0x06135A9Ae830476d3a941baE9010B63732a055F4;
+    address constant BPT_STEUR_EURE = 0x06135A9Ae830476d3a941baE9010B63732a055F4;
 
     address constant EURE_MINTER = 0x882145B1F9764372125861727d7bE616c84010Ef;
 
-    bytes4 constant SAFE_TOP_UP_SELECTOR = 0x476c6d74;
-    bytes4 constant SAFE_BPT_TOP_UP_SELECTOR = 0x98ec6ee3;
+    bytes4 constant ADJUST_POOL_SELECTOR = 0xba2f0056;
 
     // gnosis pay modules
     Delay delayModule;
@@ -63,8 +65,7 @@ contract BaseFixture is Test {
     RoboSaverVirtualModule roboModule;
 
     function setUp() public virtual {
-        // https://gnosisscan.io/block/33807394
-        vm.createSelectFork("gnosis", 33807394);
+        vm.createSelectFork("gnosis");
 
         safe = ISafe(payable(GNOSIS_SAFE));
 
@@ -76,8 +77,11 @@ contract BaseFixture is Test {
 
         roboModule = new RoboSaverVirtualModule(address(delayModule), address(rolesModule), TOP_UP_AGENT, EURE_BUFFER);
 
+        // enable robo module in the delay & gnosis safe for tests flow
         vm.prank(GNOSIS_SAFE);
         delayModule.enableModule(address(roboModule));
+        vm.prank(GNOSIS_SAFE);
+        delayModule.enableModule(GNOSIS_SAFE);
 
         vm.prank(GNOSIS_SAFE);
         safe.enableModule(address(delayModule));
@@ -107,7 +111,7 @@ contract BaseFixture is Test {
         vm.prank(EURE_MINTER);
         IEURe(EURE).mintTo(GNOSIS_SAFE, EURE_TO_MINT);
 
-        deal(BPT_EURE_STEUR, GNOSIS_SAFE, EURE_TO_MINT);
+        deal(BPT_STEUR_EURE, GNOSIS_SAFE, EURE_TO_MINT);
 
         vm.label(EURE, "EURE");
         vm.label(WETH, "WETH");
@@ -116,7 +120,34 @@ contract BaseFixture is Test {
         vm.label(address(bouncerContract), "BOUNCER_CONTRACT");
         vm.label(address(rolesModule), "ROLES_MODULE");
         vm.label(address(roboModule), "ROBO_MODULE");
-        vm.label(BPT_EURE_STEUR, "BPT_EURE_STEUR");
+        vm.label(BPT_STEUR_EURE, "BPT_STEUR_EURE");
         vm.label(address(roboModule.BALANCER_VAULT()), "BALANCER_VAULT");
+    }
+
+    // ref: https://github.com/ethereum/solidity/issues/14996
+    function _extractEncodeDataWithoutSelector(bytes memory myData) public pure returns (bytes memory, bytes4) {
+        uint256 BYTES4_SIZE = 4;
+        uint256 bytesSize = myData.length - BYTES4_SIZE;
+        bytes memory dataWithoutSelector = new bytes(bytesSize);
+        for (uint8 i = 0; i < bytesSize; i++) {
+            dataWithoutSelector[i] = myData[i + BYTES4_SIZE];
+        }
+        bytes4 selector = bytes4(myData);
+        return (dataWithoutSelector, selector);
+    }
+
+    /// @notice Helper to transfer out EURE from the safe to simulate being below the threshold of daily allowance
+    function _transferOutBelowThreshold() internal returns (uint256 tokenAmountTargetToMove_) {
+        uint256 eureBalance = IERC20(EURE).balanceOf(GNOSIS_SAFE);
+
+        (, uint128 maxRefill,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
+
+        tokenAmountTargetToMove_ = eureBalance - maxRefill + 100e18;
+
+        bytes memory payloadErc20Transfer =
+            abi.encodeWithSignature("transfer(address,uint256)", WETH, tokenAmountTargetToMove_);
+
+        vm.prank(GNOSIS_SAFE);
+        delayModule.execTransactionFromModule(EURE, 0, payloadErc20Transfer, Enum.Operation.Call);
     }
 }
