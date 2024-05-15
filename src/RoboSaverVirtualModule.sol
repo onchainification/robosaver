@@ -98,8 +98,6 @@ contract RoboSaverVirtualModule {
     /// @notice Check if there is a surplus or deficit of $EURe on the card
     /// @return canExec Whether a transaction needs to be
     /// @return execPayload The payload of the needed transaction
-    // @todo is this return structure the most efficient? why not just return action, card and amount?
-    // @todo is card even needed to be passed around? maybe make it part of the constructor instead?
     function checker() external view returns (bool canExec, bytes memory execPayload) {
         uint256 balance = EURE.balanceOf(CARD);
         (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
