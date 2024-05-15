@@ -4,8 +4,8 @@ pragma solidity ^0.8.25;
 import {IMulticall} from "@gnosispay-kit/interfaces/IMulticall.sol";
 import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
 import {IDelayModifier} from "@gnosispay-kit/interfaces/IDelayModifier.sol";
-import {IAsset} from "@balancer-v2/interfaces/contracts/vault/IAsset.sol";
 
+import {IAsset} from "@balancer-v2/interfaces/contracts/vault/IAsset.sol";
 import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
 import "@balancer-v2/interfaces/contracts/pool-stable/StablePoolUserData.sol";
 
@@ -43,6 +43,8 @@ contract RoboSaverVirtualModule {
     bytes32 public constant BPT_STEUR_EURE_POOL_ID = 0x06135a9ae830476d3a941bae9010b63732a055f4000000000000000000000065;
     bytes32 constant SET_ALLOWANCE_KEY = keccak256("SPENDING_ALLOWANCE");
 
+    address public immutable CARD;
+
     /*//////////////////////////////////////////////////////////////////////////
                                    PUBLIC STORAGE
     //////////////////////////////////////////////////////////////////////////*/
@@ -75,6 +77,8 @@ contract RoboSaverVirtualModule {
         rolesModule = IRolesModifier(_rolesModule);
         keeper = _keeper;
         buffer = _buffer;
+
+        CARD = delayModule.avatar();
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -97,18 +101,17 @@ contract RoboSaverVirtualModule {
     // @todo is this return structure the most efficient? why not just return action, card and amount?
     // @todo is card even needed to be passed around? maybe make it part of the constructor instead?
     function checker() external view returns (bool canExec, bytes memory execPayload) {
-        address card = delayModule.avatar();
-        uint256 balance = EURE.balanceOf(card);
+        uint256 balance = EURE.balanceOf(CARD);
         (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
         if (balance < dailyAllowance) {
             /// @notice there is a deficit; we need to withdraw from the pool
             uint256 deficit = dailyAllowance - balance;
-            return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.WITHDRAW, card, deficit));
+            return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.WITHDRAW, deficit));
         } else if (balance > dailyAllowance + buffer) {
             /// @notice there is a surplus; we need to deposit into the pool
             uint256 surplus = balance - (dailyAllowance + buffer);
-            return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.DEPOSIT, card, surplus));
+            return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.DEPOSIT, surplus));
         }
 
         /// @notice neither deficit nor surplus; no action needed
@@ -117,18 +120,13 @@ contract RoboSaverVirtualModule {
 
     /// @notice Adjust the pool by depositing or withdrawing $EURe
     /// @param _action The action to take: deposit or withdraw
-    /// @param _card The address of the card to deposit or withdraw from
     /// @param _amount The amount of $EURe to deposit or withdraw
     /// @return execPayload_ The payload of the transaction to execute
-    function adjustPool(PoolAction _action, address _card, uint256 _amount)
-        external
-        onlyKeeper
-        returns (bytes memory execPayload_)
-    {
+    function adjustPool(PoolAction _action, uint256 _amount) external onlyKeeper returns (bytes memory execPayload_) {
         if (_action == PoolAction.WITHDRAW) {
-            execPayload_ = abi.encode(_poolWithdrawal(_card, _amount));
+            execPayload_ = abi.encode(_poolWithdrawal(CARD, _amount));
         } else if (_action == PoolAction.DEPOSIT) {
-            execPayload_ = abi.encode(_poolDeposit(_card, _amount));
+            execPayload_ = abi.encode(_poolDeposit(CARD, _amount));
         }
     }
 

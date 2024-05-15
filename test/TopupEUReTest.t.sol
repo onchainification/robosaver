@@ -27,12 +27,17 @@ contract TopupTest is BaseFixture {
         (canExec, execPayload) = roboModule.checker();
 
         assertTrue(canExec, "CanExec: not executable");
-        assertEq(bytes4(execPayload), ADJUST_POOL_SELECTOR, "Selector: not adjust pool (0xafd738d0)");
+        assertEq(bytes4(execPayload), ADJUST_POOL_SELECTOR, "Selector: not adjust pool (0xba2f0056)");
     }
 
     // @note ref for error codes: https://docs.balancer.fi/reference/contracts/error-codes.html#error-codes
     function testExitPool() public {
         uint256 initialBptBal = IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE);
+
+        (bool canExec, bytes memory execPayload) = roboModule.checker();
+
+        assertFalse(canExec);
+        assertEq(execPayload, bytes("No queue tx and sufficient balance"));
 
         uint256 tokenAmountTargetToMove = _transferOutBelowThreshold();
 
@@ -42,13 +47,13 @@ contract TopupTest is BaseFixture {
 
         delayModule.executeNextTx(EURE, 0, payload, Enum.Operation.Call);
 
-        (bool canExec, bytes memory execPayload) = roboModule.checker();
+        (canExec, execPayload) = roboModule.checker();
         (bytes memory dataWithoutSelector, bytes4 selector) = _extractEncodeDataWithoutSelector(execPayload);
-        (RoboSaverVirtualModule.PoolAction _action, address _card, uint256 _amount) =
-            abi.decode(dataWithoutSelector, (RoboSaverVirtualModule.PoolAction, address, uint256));
+        (RoboSaverVirtualModule.PoolAction _action, uint256 _amount) =
+            abi.decode(dataWithoutSelector, (RoboSaverVirtualModule.PoolAction, uint256));
 
         assertTrue(canExec, "CanExec: not executable");
-        assertEq(selector, ADJUST_POOL_SELECTOR, "Selector: not adjust pool (0xafd738d0)");
+        assertEq(selector, ADJUST_POOL_SELECTOR, "Selector: not adjust pool (0xba2f0056)");
         assertEq(
             uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.WITHDRAW), "PoolAction: not withdrawal from pool"
         );
@@ -56,7 +61,7 @@ contract TopupTest is BaseFixture {
         uint256 initialEureBal = IERC20(EURE).balanceOf(GNOSIS_SAFE);
 
         vm.prank(TOP_UP_AGENT);
-        bytes memory execPayload_ = roboModule.adjustPool(_action, _card, _amount);
+        bytes memory execPayload_ = roboModule.adjustPool(_action, _amount);
 
         vm.warp(block.timestamp + COOL_DOWN_PERIOD);
 
