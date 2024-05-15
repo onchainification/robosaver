@@ -14,7 +14,7 @@ contract TopupTest is BaseFixture {
         (bool canExec, bytes memory execPayload) = roboModule.checker();
 
         assertFalse(canExec);
-        assertEq(execPayload, bytes("No queue tx and sufficient balance"));
+        assertEq(execPayload, bytes("Neither deficit nor surplus; no action needed"));
 
         uint256 tokenAmountTargetToMove = _transferOutBelowThreshold();
 
@@ -37,7 +37,7 @@ contract TopupTest is BaseFixture {
         (bool canExec, bytes memory execPayload) = roboModule.checker();
 
         assertFalse(canExec);
-        assertEq(execPayload, bytes("No queue tx and sufficient balance"));
+        assertEq(execPayload, bytes("Neither deficit nor surplus; no action needed"));
 
         uint256 tokenAmountTargetToMove = _transferOutBelowThreshold();
 
