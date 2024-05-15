@@ -34,6 +34,11 @@ contract TopupTest is BaseFixture {
     function testExitPool() public {
         uint256 initialBptBal = IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE);
 
+        (bool canExec, bytes memory execPayload) = roboModule.checker();
+
+        assertFalse(canExec);
+        assertEq(execPayload, bytes("No queue tx and sufficient balance"));
+
         uint256 tokenAmountTargetToMove = _transferOutBelowThreshold();
 
         vm.warp(block.timestamp + COOL_DOWN_PERIOD);
@@ -42,7 +47,7 @@ contract TopupTest is BaseFixture {
 
         delayModule.executeNextTx(EURE, 0, payload, Enum.Operation.Call);
 
-        (bool canExec, bytes memory execPayload) = roboModule.checker();
+        (canExec, execPayload) = roboModule.checker();
         (bytes memory dataWithoutSelector, bytes4 selector) = _extractEncodeDataWithoutSelector(execPayload);
         (RoboSaverVirtualModule.PoolAction _action, uint256 _amount) =
             abi.decode(dataWithoutSelector, (RoboSaverVirtualModule.PoolAction, uint256));
