@@ -4,6 +4,8 @@ RoboSaver turns your Gnosis Pay card into an automated savings account!
 
 Unused EURE on your card gets deposited into a liquidity pool, where it collects yield and swapping fees. As soon as your card's balance gets below a certain threshold, the RoboSaver will withdraw some EURE from the pool for you and top up your card. Thus creating the perfect balance between having EURE ready for spending and putting EURE to work!
 
+![](diagram.drawio.png)
+
 ## Technical Details
 
 Only a single smart contract is needed; `RoboSaverVirtualModule`. The module is "virtual", since it doesn't get installed on the Gnosis Pay Safe directly, but on the `Delay` module instead. This way all of its transactions still respect the necessary delay needed to eventually settle with Visa.
@@ -28,6 +30,7 @@ Note that the safe's EURE balance going below the threshold of 10 EURE triggered
 <img width="893" alt="Screenshot_2024-04-18_at_16 59 04" src="https://github.com/onchainification/robosaver/assets/2835259/9c7aee20-28d1-408c-9540-0d8f851ef379">
 
 ### Deployments
+
 - `Roles`: https://gnosisscan.io/address/0xa7882cd617b53ac5832acceec0e786dbd38fec4b#code
 - `Delay`: https://gnosisscan.io/address/0x60bea2e60ac91d354cad23391100bc24ebc9450e#code
 - `Bouncer`: https://gnosisscan.io/address/0x40049dec4466fbdc52ec0c21c47c65a6315cf3e7#code
