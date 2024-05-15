@@ -96,9 +96,9 @@ contract RoboSaverVirtualModule {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice Check if there is a surplus or deficit of $EURe on the card
-    /// @return canExec Whether the queuing of a transaction
+    /// @return adjustPoolNeeded True if there is a deficit or surplus; false otherwise
     /// @return execPayload The payload of the needed transaction
-    function checker() external view returns (bool canExec, bytes memory execPayload) {
+    function checker() external view returns (bool adjustPoolNeeded, bytes memory execPayload) {
         uint256 balance = EURE.balanceOf(CARD);
         (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
