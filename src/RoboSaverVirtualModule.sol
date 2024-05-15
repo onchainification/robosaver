@@ -96,7 +96,7 @@ contract RoboSaverVirtualModule {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice Check if there is a surplus or deficit of $EURe on the card
-    /// @return canExec Whether a transaction needs to be
+    /// @return canExec Whether the queuing of a transaction
     /// @return execPayload The payload of the needed transaction
     function checker() external view returns (bool canExec, bytes memory execPayload) {
         uint256 balance = EURE.balanceOf(CARD);
@@ -205,6 +205,7 @@ contract RoboSaverVirtualModule {
         bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
 
         /// @dev Queue the transaction into the delay module
+        /// @dev Last argument `1` stands for `OperationType.DelegateCall`
         delayModule.execTransactionFromModule(MULTICALL3, 0, multicallPayload, 1);
 
         emit PoolDepositQueued(_card, _surplus, block.timestamp);
