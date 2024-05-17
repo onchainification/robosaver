@@ -61,11 +61,27 @@ contract RoboSaverVirtualModule {
     event PoolWithdrawalQueued(address indexed safe, uint256 amount, uint256 timestamp);
     event PoolDepositQueued(address indexed safe, uint256 amount, uint256 timestamp);
 
+    /// @notice Emitted when the admin sets a new buffer value.
+    /// @param admin The address of the contract admin.
+    /// @param oldBuffer The value of the old buffer.
+    /// @param newBuffer The value of the new buffer.
+    event SetBuffer(address indexed admin, uint256 oldBuffer, uint256 newBuffer);
+
+    /// @notice Emitted when the admin sets a new keeper address.
+    /// @param admin The address of the contract admin.
+    /// @param oldKeeper The address of the old keeper.
+    /// @param newKeeper The address of the new keeper.
+    event SetKeeper(address indexed admin, address oldKeeper, address newKeeper);
+
     /*//////////////////////////////////////////////////////////////////////////
                                        ERRORS
     //////////////////////////////////////////////////////////////////////////*/
 
     error NotKeeper(address agent);
+    error NotAdmin(address agent);
+
+    error ZeroAddressValue();
+    error ZeroUintValue();
 
     /*//////////////////////////////////////////////////////////////////////////
                                       MODIFIERS
@@ -74,6 +90,12 @@ contract RoboSaverVirtualModule {
     /// @notice Enforce that the function is called by the keeper only
     modifier onlyKeeper() {
         if (msg.sender != keeper) revert NotKeeper(msg.sender);
+        _;
+    }
+
+    /// @notice Enforce that the function is called by the admin only
+    modifier onlyAdmin() {
+        if (msg.sender != CARD) revert NotAdmin(msg.sender);
         _;
     }
 
@@ -93,6 +115,28 @@ contract RoboSaverVirtualModule {
     /*//////////////////////////////////////////////////////////////////////////
                                   EXTERNAL METHODS
     //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Assigns a new value for the buffer responsible for deciding when there is a surplus
+    /// @param _buffer The value of the new buffer
+    function setBuffer(uint256 _buffer) external onlyAdmin {
+        if (_buffer == 0) revert ZeroUintValue();
+
+        uint256 oldBuffer = buffer;
+        buffer = _buffer;
+
+        emit SetBuffer(msg.sender, oldBuffer, buffer);
+    }
+
+    /// @notice Assigns a new keeper address responsible for the calling of `adjustPool`
+    /// @param _keeper The address of the new keeper
+    function setKeeper(address _keeper) external onlyAdmin {
+        if (_keeper == address(0)) revert ZeroAddressValue();
+
+        address oldKeeper = keeper;
+        keeper = _keeper;
+
+        emit SetKeeper(msg.sender, oldKeeper, keeper);
+    }
 
     /// @notice Check if there is a surplus or deficit of $EURe on the card
     /// @return adjustPoolNeeded True if there is a deficit or surplus; false otherwise
