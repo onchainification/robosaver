@@ -127,7 +127,7 @@ contract RoboSaverVirtualModule {
         emit SetBuffer(msg.sender, oldBuffer, buffer);
     }
 
-    /// @notice Assigns a new keeper address responsible for the calling of `adjustPool`
+    /// @notice Assigns a new keeper address
     /// @param _keeper The address of the new keeper
     function setKeeper(address _keeper) external onlyAdmin {
         if (_keeper == address(0)) revert ZeroAddressValue();
