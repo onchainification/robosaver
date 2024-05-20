@@ -58,8 +58,22 @@ contract RoboSaverVirtualModule {
                                        EVENTS
     //////////////////////////////////////////////////////////////////////////*/
 
+    /// @notice Emitted when a withdrawal pool transaction is being queued up.
+    /// @param safe The address of the card.
+    /// @param amount The amount of $EURe to withdraw from the pool
+    /// @param timestamp The timestamp of the transaction.
     event PoolWithdrawalQueued(address indexed safe, uint256 amount, uint256 timestamp);
+
+    /// @notice Emitted when a deposit pool transaction is being queued up.
+    /// @param safe The address of the card.
+    /// @param amount The amount of $EURe to deposit into the pool
+    /// @param timestamp The timestamp of the transaction.
     event PoolDepositQueued(address indexed safe, uint256 amount, uint256 timestamp);
+
+    /// @notice Emitted when an adjustment pool transaction is being queued up.
+    /// @param target The address of the target contract.
+    /// @param payload The payload of the transaction to be executed on the target contract.
+    event AdjustPoolTxDataQueued(address indexed target, bytes payload);
 
     /// @notice Emitted when the admin sets a new buffer value.
     /// @param admin The address of the contract admin.
@@ -208,6 +222,7 @@ contract RoboSaverVirtualModule {
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
         delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, payload, 0);
 
+        emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), payload);
         emit PoolWithdrawalQueued(_card, _deficit, block.timestamp);
     }
 
@@ -251,6 +266,7 @@ contract RoboSaverVirtualModule {
         /// @dev Last argument `1` stands for `OperationType.DelegateCall`
         delayModule.execTransactionFromModule(MULTICALL3, 0, multicallPayload, 1);
 
+        emit AdjustPoolTxDataQueued(MULTICALL3, multicallPayload);
         emit PoolDepositQueued(_card, _surplus, block.timestamp);
 
         return calls_;
