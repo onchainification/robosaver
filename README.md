@@ -1,6 +1,6 @@
 # RoboSaver
 
-RoboSaver turns your Gnosis Pay card into an automated savings account!
+RoboSaver turns your [Gnosis Pay card](https://gnosispay.com/) into an automated savings account!
 
 Unused [EURe](https://monerium.com/tokens/) on your card gets deposited into a liquidity pool, where it collects yield and swapping fees. As soon as your card's balance gets below a certain threshold, the RoboSaver will withdraw some EURe from the pool for you and top up your card. Thus creating the perfect balance between having EURe ready for spending and putting EURe to work!
 
@@ -9,6 +9,13 @@ Unused [EURe](https://monerium.com/tokens/) on your card gets deposited into a l
 ## 1. Technical Details
 
 Only a single smart contract is needed; `RoboSaverVirtualModule`. The module is "virtual", since it doesn't get installed on the Gnosis Pay Safe directly, but on the `Delay` module instead. This way all of its transactions still respect the necessary delay needed to eventually settle with Visa.
+
+Currently the contract is set up to be automated through Gelato; it will call `checker` to see if any action is needed, and then `adjustPool` to perform that necessary action.
+
+### 1.1 External Methods
+
+- `checker()`: determines whether the balance of the card is in surplus or deficit; returns whether an adjustment to the pool is needed and the payload needed to do so
+- `adjustPool(PoolAction _action, uint256 _amount)`: call the necessary internal method needed to rebalance the pool
 
 ## 2. Installation
 
