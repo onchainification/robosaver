@@ -7,6 +7,7 @@ import {IDelayModifier} from "@gnosispay-kit/interfaces/IDelayModifier.sol";
 import {IComposableStablePool} from "src/interfaces/IComposableStablePool.sol";
 
 import {IAsset} from "@balancer-v2/interfaces/contracts/vault/IAsset.sol";
+import {IBalancerQueries} from "@balancer-v2/interfaces/contracts/standalone-utils/IBalancerQueries.sol";
 import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
 import "@balancer-v2/interfaces/contracts/pool-stable/StablePoolUserData.sol";
 
@@ -40,6 +41,7 @@ contract RoboSaverVirtualModule {
     IERC20 constant EURE = IERC20(0xcB444e90D8198415266c6a2724b7900fb12FC56E);
 
     IVault public constant BALANCER_VAULT = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
+    IBalancerQueries constant BALANCER_QUERIES = IBalancerQueries(0x0F3e0c4218b7b0108a3643cFe9D3ec0d4F57c54e);
     IComposableStablePool constant BPT_STEUR_EURE = IComposableStablePool(0x06135A9Ae830476d3a941baE9010B63732a055F4);
 
     bytes32 public immutable BPT_STEUR_EURE_POOL_ID;
@@ -169,13 +171,14 @@ contract RoboSaverVirtualModule {
         uint256[] memory amountsOut = new uint256[](2);
         amountsOut[1] = _deficit;
 
-        /// @dev Calculate the `maxBPTAmountIn` based on the bpt rate but allow for price impact
-        bytes memory userData = abi.encode(
-            StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT,
-            amountsOut,
-            minAmountsOut[2] * MAX_BPS * 1e18 / IMPACT / BPT_STEUR_EURE.getRate()
-        );
+        /// @dev Pass inifite `maxBPTAmountIn` at first
+        bytes memory userData =
+            abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, type(uint256).max);
 
+        /// @dev Now get the actual bpt in
+        request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
+        (uint256 bptIn,) = BALANCER_QUERIES.queryExit(BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
+        userData = abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, bptIn);
         /// @dev Queue the transaction into the delay module
         request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
         bytes memory payload =
