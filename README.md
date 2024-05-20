@@ -10,7 +10,7 @@ Unused [EURe](https://monerium.com/tokens/) on your card gets deposited into a l
 
 Only a single smart contract is needed; `RoboSaverVirtualModule`. The module is "virtual", since it doesn't get installed on the Gnosis Pay Safe directly, but on the `Delay` module instead. This way all of its transactions still respect the necessary delay needed to eventually settle with Visa.
 
-Currently the contract is set up to be automated through Gelato; it will call `checker` to see if any action is needed, and then `adjustPool` to perform that necessary action.
+Currently the contract is automated by having a keeper call `checker` to see if any action is needed, and, if needed, then call `adjustPool` to perform that necessary action.
 
 ### 1.1 External Methods
 
