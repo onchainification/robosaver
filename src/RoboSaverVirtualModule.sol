@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 import {IMulticall} from "@gnosispay-kit/interfaces/IMulticall.sol";
 import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
 import {IDelayModifier} from "@gnosispay-kit/interfaces/IDelayModifier.sol";
+import {IComposableStablePool} from "src/interfaces/IComposableStablePool.sol";
 
 import {IAsset} from "@balancer-v2/interfaces/contracts/vault/IAsset.sol";
 import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
@@ -29,7 +30,7 @@ contract RoboSaverVirtualModule {
                                    CONSTANTS
     //////////////////////////////////////////////////////////////////////////*/
 
-    uint256 constant SLIPP = 9_800;
+    uint256 constant IMPACT = 9_800;
     uint256 constant MAX_BPS = 10_000;
 
     address public constant MULTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
@@ -37,11 +38,11 @@ contract RoboSaverVirtualModule {
 
     IERC20 constant STEUR = IERC20(0x004626A008B1aCdC4c74ab51644093b155e59A23);
     IERC20 constant EURE = IERC20(0xcB444e90D8198415266c6a2724b7900fb12FC56E);
-    IERC20 constant BPT_STEUR_EURE = IERC20(0x06135A9Ae830476d3a941baE9010B63732a055F4);
 
     IVault public constant BALANCER_VAULT = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
+    IComposableStablePool constant BPT_STEUR_EURE = IComposableStablePool(0x06135A9Ae830476d3a941baE9010B63732a055F4);
 
-    bytes32 public constant BPT_STEUR_EURE_POOL_ID = 0x06135a9ae830476d3a941bae9010b63732a055f4000000000000000000000065;
+    bytes32 public immutable BPT_STEUR_EURE_POOL_ID;
     bytes32 constant SET_ALLOWANCE_KEY = keccak256("SPENDING_ALLOWANCE");
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -102,6 +103,7 @@ contract RoboSaverVirtualModule {
         buffer = _buffer;
 
         CARD = delayModule.avatar();
+        BPT_STEUR_EURE_POOL_ID = BPT_STEUR_EURE.getPoolId();
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -167,10 +169,12 @@ contract RoboSaverVirtualModule {
         uint256[] memory amountsOut = new uint256[](2);
         amountsOut[1] = _deficit;
 
-        // @todo do we need more math to calculate the exact amount of bpt to withdraw?
-        // @todo if not, explain why not in a @dev comment here
-        bytes memory userData =
-            abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, type(uint256).max);
+        /// @dev Calculate the `maxBPTAmountIn` based on the bpt rate but allow for price impact
+        bytes memory userData = abi.encode(
+            StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT,
+            amountsOut,
+            minAmountsOut[2] * MAX_BPS * 1e18 / IMPACT / BPT_STEUR_EURE.getRate()
+        );
 
         /// @dev Queue the transaction into the delay module
         request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
@@ -200,10 +204,11 @@ contract RoboSaverVirtualModule {
         uint256[] memory maxAmountsIn = new uint256[](3);
         maxAmountsIn[2] = _surplus;
 
-        // @todo is there an assumption here that 1 bpt = 1 eure? is that always correct?
         uint256[] memory amountsIn = new uint256[](2);
         amountsIn[1] = _surplus;
-        uint256 minimumBPT = (_surplus * SLIPP) / MAX_BPS;
+
+        /// @dev Calculate the `minimumBPT` to receive based on the bpt rate but allow for price impact
+        uint256 minimumBPT = _surplus * IMPACT * 1e18 / MAX_BPS / BPT_STEUR_EURE.getRate();
         bytes memory userData =
             abi.encode(StablePoolUserData.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, amountsIn, minimumBPT);
 
