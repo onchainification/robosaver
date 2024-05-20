@@ -4,7 +4,7 @@ RoboSaver turns your Gnosis Pay card into an automated savings account!
 
 Unused [EURe](https://monerium.com/tokens/) on your card gets deposited into a liquidity pool, where it collects yield and swapping fees. As soon as your card's balance gets below a certain threshold, the RoboSaver will withdraw some EURe from the pool for you and top up your card. Thus creating the perfect balance between having EURe ready for spending and putting EURe to work!
 
-![](diagram.drawio.png)
+<p align="center"><img src="diagram.drawio.png"></p>
 
 ## 1. Technical Details
 
