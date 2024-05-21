@@ -49,3 +49,13 @@ Finally, copy `.env.example` to `.env` and populate it.
 ### Test
 
 Run `forge test -vvvv`.
+
+### Local Deployment
+
+```
+$ make startAnvil
+```
+
+```
+$ make deployAnvil
+```
