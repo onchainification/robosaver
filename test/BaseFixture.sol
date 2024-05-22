@@ -21,7 +21,9 @@ contract BaseFixture is Test {
                                    CONSTANTS
     //////////////////////////////////////////////////////////////////////////*/
 
-    address constant TOP_UP_AGENT = address(747834834);
+    address constant KEEPER = address(747834834);
+
+    uint16 constant SLIPPAGE = 200; // 2%
 
     // @note eure mint: daily allowance + buffer - 1 (to trigger a state of `canExec` = false)
     uint256 constant EURE_TO_MINT = 240e18;
@@ -75,7 +77,8 @@ contract BaseFixture is Test {
 
         bouncerContract = new Bouncer(GNOSIS_SAFE, address(rolesModule), SET_ALLOWANCE_SELECTOR);
 
-        roboModule = new RoboSaverVirtualModule(address(delayModule), address(rolesModule), TOP_UP_AGENT, EURE_BUFFER);
+        roboModule =
+            new RoboSaverVirtualModule(address(delayModule), address(rolesModule), KEEPER, EURE_BUFFER, SLIPPAGE);
 
         // enable robo module in the delay & gnosis safe for tests flow
         vm.prank(GNOSIS_SAFE);

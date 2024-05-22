@@ -60,7 +60,7 @@ contract TopupTest is BaseFixture {
 
         uint256 initialEureBal = IERC20(EURE).balanceOf(GNOSIS_SAFE);
 
-        vm.prank(TOP_UP_AGENT);
+        vm.prank(KEEPER);
         bytes memory execPayload_ = roboModule.adjustPool(_action, _amount);
 
         vm.warp(block.timestamp + COOL_DOWN_PERIOD);

@@ -36,7 +36,7 @@ contract TopupBptTest is BaseFixture {
             uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.DEPOSIT), "PoolAction: not depositing into the pool"
         );
 
-        vm.prank(TOP_UP_AGENT);
+        vm.prank(KEEPER);
         bytes memory execPayload_ = roboModule.adjustPool(_action, _amount);
 
         vm.warp(block.timestamp + COOL_DOWN_PERIOD);
