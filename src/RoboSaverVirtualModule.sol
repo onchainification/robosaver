@@ -165,10 +165,10 @@ contract RoboSaverVirtualModule {
 
     /// @notice Adjust the maximum slippage the user is comfortable with
     /// @param _slippage The value of the new slippage in bps (so 10_000 is 100%)
-    function setSlippage(uint256 _slippage) external onlyAdmin {
+    function setSlippage(uint16 _slippage) external onlyAdmin {
         if (_slippage >= MAX_BPS) revert TooHighBps();
 
-        uint256 oldSlippage = slippage;
+        uint16 oldSlippage = slippage;
         slippage = _slippage;
 
         emit SetSlippage(msg.sender, oldSlippage, slippage);
