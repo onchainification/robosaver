@@ -157,6 +157,8 @@ contract RoboSaverVirtualModule {
     /// @return adjustPoolNeeded True if there is a deficit or surplus; false otherwise
     /// @return execPayload The payload of the needed transaction
     function checker() external view returns (bool adjustPoolNeeded, bytes memory execPayload) {
+        if (_isTxQueued()) return (false, bytes("Transaction in queue, wait for it to be executed"));
+
         uint256 balance = EURE.balanceOf(CARD);
         (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
@@ -270,5 +272,11 @@ contract RoboSaverVirtualModule {
         emit PoolDepositQueued(_card, _surplus, block.timestamp);
 
         return calls_;
+    }
+
+    /// @notice Check if there is a transaction queued up in the delay module
+    /// @return isTxQueued_ True if there is a transaction queued up; false otherwise
+    function _isTxQueued() internal view returns (bool isTxQueued_) {
+        if (delayModule.txNonce() != delayModule.queueNonce()) isTxQueued_ = true;
     }
 }
