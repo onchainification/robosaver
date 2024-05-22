@@ -10,6 +10,7 @@ import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
 contract SettersTest is BaseFixture {
     event SetBuffer(address indexed admin, uint256 oldBuffer, uint256 newBuffer);
     event SetKeeper(address indexed admin, address oldKeeper, address newKeeper);
+    event SetSlippage(address indexed admin, uint256 oldSlippage, uint256 newSlippage);
 
     function test_RevertWhen_BufferZeroValue() public {
         vm.prank(roboModule.CARD());
@@ -23,6 +24,12 @@ contract SettersTest is BaseFixture {
         roboModule.setKeeper(address(0));
     }
 
+    function test_RevertWhen_SlippageTooHigh() public {
+        vm.prank(roboModule.CARD());
+        vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.TooHighBps.selector));
+        roboModule.setSlippage(10_001);
+    }
+
     function test_RevertWhen_CallerNotAdmin() public {
         address randomCaller = address(4343534);
 
@@ -33,11 +40,15 @@ contract SettersTest is BaseFixture {
         vm.prank(randomCaller);
         vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.NotAdmin.selector, randomCaller));
         roboModule.setKeeper(address(554));
+
+        vm.prank(randomCaller);
+        vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.NotAdmin.selector, randomCaller));
+        roboModule.setSlippage(1);
     }
 
     function testSetBuffer() public {
-        uint256 newBuffer = 1000;
         uint256 oldBuffer = roboModule.buffer();
+        uint256 newBuffer = 1000;
 
         vm.expectEmit(true, true, true, true);
         emit SetBuffer(roboModule.CARD(), oldBuffer, newBuffer);
@@ -49,8 +60,8 @@ contract SettersTest is BaseFixture {
     }
 
     function testSetKeeper() public {
-        address newKeeper = address(0x123);
         address oldKeeper = roboModule.keeper();
+        address newKeeper = address(0x123);
 
         vm.expectEmit(true, true, true, true);
         emit SetKeeper(roboModule.CARD(), oldKeeper, newKeeper);
@@ -59,5 +70,18 @@ contract SettersTest is BaseFixture {
         roboModule.setKeeper(newKeeper);
 
         assertEq(roboModule.keeper(), newKeeper, "Keeper: not matching newKeeper address");
+    }
+
+    function testSetSlippage() public {
+        uint16 oldSlippage = roboModule.slippage();
+        uint16 newSlippage = 777;
+
+        vm.expectEmit(true, true, true, true);
+        emit SetSlippage(roboModule.CARD(), oldSlippage, newSlippage);
+
+        vm.prank(roboModule.CARD());
+        roboModule.setSlippage(newSlippage);
+
+        assertEq(roboModule.slippage(), newSlippage, "Slippage: not matching newSlippage value");
     }
 }
