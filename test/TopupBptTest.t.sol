@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {console} from "forge-std/Test.sol";
+import "forge-std/Test.sol";
 
 import {BaseFixture} from "./BaseFixture.sol";
 
@@ -36,15 +36,31 @@ contract TopupBptTest is BaseFixture {
             uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.DEPOSIT), "PoolAction: not depositing into the pool"
         );
 
+        // listen for `AdjustPoolTxDataQueued` event to capture the payload
+        vm.recordLogs();
+
         vm.prank(TOP_UP_AGENT);
-        bytes memory execPayload_ = roboModule.adjustPool(_action, _amount);
+        roboModule.adjustPool(_action, _amount);
+
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+
+        assertEq(
+            entries[1].topics[0],
+            keccak256("AdjustPoolTxDataQueued(address,bytes)"),
+            "Topic: not matching 0xd6f543d0f78fc911805eb7976b83bb1e8cc25c931073876bab9df7a09813cf0b"
+        );
+        assertEq(
+            address(uint160(uint256(entries[1].topics[1]))),
+            roboModule.MULTICALL3(),
+            "Target: expected to be the MULTICALL3 address"
+        );
 
         vm.warp(block.timestamp + COOL_DOWN_PERIOD);
 
         // two actions:
         // 1. eure exact appproval to `BALANCER_VAULT`
         // 2. join the pool single sided with the excess
-        IMulticall.Call[] memory calls_ = abi.decode(execPayload_, (IMulticall.Call[]));
+        IMulticall.Call[] memory calls_ = abi.decode(abi.decode(entries[1].data, (bytes)), (IMulticall.Call[]));
 
         bytes memory multiCallPayalod = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
         delayModule.executeNextTx(roboModule.MULTICALL3(), 0, multiCallPayalod, Enum.Operation.DelegateCall);
