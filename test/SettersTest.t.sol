@@ -1,17 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {console} from "forge-std/Test.sol";
-
 import {BaseFixture} from "./BaseFixture.sol";
 
 import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
 
 contract SettersTest is BaseFixture {
-    event SetBuffer(address indexed admin, uint256 oldBuffer, uint256 newBuffer);
-    event SetKeeper(address indexed admin, address oldKeeper, address newKeeper);
-    event SetSlippage(address indexed admin, uint256 oldSlippage, uint256 newSlippage);
-
     function test_RevertWhen_BufferZeroValue() public {
         vm.prank(roboModule.CARD());
         vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.ZeroUintValue.selector));
@@ -51,7 +45,7 @@ contract SettersTest is BaseFixture {
         uint256 newBuffer = 1000;
 
         vm.expectEmit(true, true, true, true);
-        emit SetBuffer(roboModule.CARD(), oldBuffer, newBuffer);
+        emit RoboSaverVirtualModule.SetBuffer(roboModule.CARD(), oldBuffer, newBuffer);
 
         vm.prank(roboModule.CARD());
         roboModule.setBuffer(newBuffer);
@@ -64,7 +58,7 @@ contract SettersTest is BaseFixture {
         address newKeeper = address(0x123);
 
         vm.expectEmit(true, true, true, true);
-        emit SetKeeper(roboModule.CARD(), oldKeeper, newKeeper);
+        emit RoboSaverVirtualModule.SetKeeper(roboModule.CARD(), oldKeeper, newKeeper);
 
         vm.prank(roboModule.CARD());
         roboModule.setKeeper(newKeeper);
