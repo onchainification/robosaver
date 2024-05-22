@@ -70,6 +70,7 @@ contract RoboSaverVirtualModule {
     /// @param timestamp The timestamp of the transaction.
     event PoolDepositQueued(address indexed safe, uint256 amount, uint256 timestamp);
 
+    /// @dev Event is leverage by off-chain service to execute the queued transaction.
     /// @notice Emitted when an adjustment pool transaction is being queued up.
     /// @param target The address of the target contract.
     /// @param payload The payload of the transaction to be executed on the target contract.
@@ -221,9 +222,7 @@ contract RoboSaverVirtualModule {
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
         delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, payload, 0);
 
-        /// @dev event is leverage by off-chain service to execute the transaction
         emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_));
-
         emit PoolWithdrawalQueued(_card, _deficit, block.timestamp);
     }
 
@@ -267,9 +266,7 @@ contract RoboSaverVirtualModule {
         /// @dev Last argument `1` stands for `OperationType.DelegateCall`
         delayModule.execTransactionFromModule(MULTICALL3, 0, multicallPayload, 1);
 
-        /// @dev event is leverage by off-chain service to execute the transaction
         emit AdjustPoolTxDataQueued(MULTICALL3, abi.encode(calls_));
-
         emit PoolDepositQueued(_card, _surplus, block.timestamp);
 
         return calls_;
