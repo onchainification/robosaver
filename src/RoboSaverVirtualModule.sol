@@ -70,8 +70,8 @@ contract RoboSaverVirtualModule {
     /// @param timestamp The timestamp of the transaction.
     event PoolDepositQueued(address indexed safe, uint256 amount, uint256 timestamp);
 
-    /// @dev Event is leverage by off-chain service to execute the queued transaction.
     /// @notice Emitted when an adjustment pool transaction is being queued up.
+    /// @dev Event is leverage by off-chain service to execute the queued transaction.
     /// @param target The address of the target contract.
     /// @param payload The payload of the transaction to be executed on the target contract.
     event AdjustPoolTxDataQueued(address indexed target, bytes payload);
