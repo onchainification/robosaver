@@ -277,9 +277,6 @@ contract RoboSaverVirtualModule {
     /// @notice Check if there is a transaction queued up in the delay module
     /// @return isTxQueued_ True if there is a transaction queued up; false otherwise
     function _isTxQueued() internal view returns (bool isTxQueued_) {
-        uint256 queueNonce = delayModule.queueNonce();
-        uint256 txNonce = delayModule.txNonce();
-
-        if (txNonce != queueNonce) isTxQueued_ = true;
+        if (delayModule.txNonce() != delayModule.queueNonce()) isTxQueued_ = true;
     }
 }
