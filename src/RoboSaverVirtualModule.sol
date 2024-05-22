@@ -205,12 +205,12 @@ contract RoboSaverVirtualModule {
             uint256 withdrawableEure =
                 BPT_STEUR_EURE.balanceOf(CARD) * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / MAX_BPS;
             if (withdrawableEure < _amount) {
-                _poolClose(CARD, withdrawableEure);
+                _poolClose(withdrawableEure);
             } else {
-                _poolWithdrawal(CARD, _amount);
+                _poolWithdrawal(_amount);
             }
         } else if (_action == PoolAction.DEPOSIT) {
-            _poolDeposit(CARD, _amount);
+            _poolDeposit(_amount);
         }
     }
 
@@ -219,12 +219,9 @@ contract RoboSaverVirtualModule {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice Close the pool position by withdrawing all to $EURe
-    /// @param _card The address of the card to withdraw to
+    /// @param _minAmountOut The minimum amount of $EURe to withdraw from the pool
     /// @return request_ The exit pool request as per Balancer's interface
-    function _poolClose(address _card, uint256 _minAmountOut)
-        internal
-        returns (IVault.ExitPoolRequest memory request_)
-    {
+    function _poolClose(uint256 _minAmountOut) internal returns (IVault.ExitPoolRequest memory request_) {
         /// @dev All asset related arrays should always follow this (alphabetical) order
         IAsset[] memory assets = new IAsset[](3);
         assets[0] = IAsset(address(STEUR));
@@ -237,26 +234,22 @@ contract RoboSaverVirtualModule {
 
         /// @dev The `exitTokenIndex` for $EURe is 2
         bytes memory userData =
-            abi.encode(StablePoolUserData.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, BPT_STEUR_EURE.balanceOf(_card), 2);
+            abi.encode(StablePoolUserData.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, BPT_STEUR_EURE.balanceOf(CARD), 2);
         request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
         bytes memory exitPoolPayload =
-            abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
+            abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
 
         /// @dev Queue the transaction into the delay module
         delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, exitPoolPayload, 0);
 
         emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_));
-        emit PoolWithdrawalQueued(_card, _minAmountOut, block.timestamp);
+        emit PoolWithdrawalQueued(CARD, _minAmountOut, block.timestamp);
     }
 
     /// @notice Withdraw $EURe from the pool
-    /// @param _card The address of the card to withdraw to
     /// @param _deficit The amount of $EURe to withdraw from the pool
     /// @return request_ The exit pool request as per Balancer's interface
-    function _poolWithdrawal(address _card, uint256 _deficit)
-        internal
-        returns (IVault.ExitPoolRequest memory request_)
-    {
+    function _poolWithdrawal(uint256 _deficit) internal returns (IVault.ExitPoolRequest memory request_) {
         /// @dev All asset related arrays should always follow this (alphabetical) order
         IAsset[] memory assets = new IAsset[](3);
         assets[0] = IAsset(address(STEUR));
@@ -278,20 +271,19 @@ contract RoboSaverVirtualModule {
             abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn);
         request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
         bytes memory exitPoolPayload =
-            abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
+            abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
 
         /// @dev Queue the transaction into the delay module
         delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, exitPoolPayload, 0);
 
         emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_));
-        emit PoolWithdrawalQueued(_card, _deficit, block.timestamp);
+        emit PoolWithdrawalQueued(CARD, _deficit, block.timestamp);
     }
 
     /// @notice Deposit $EURe into the pool
-    /// @param _card The address of the card to deposit from
     /// @param _surplus The amount of $EURe to deposit into the pool
     /// @return calls_ The calls needed approve $EURe and join the pool
-    function _poolDeposit(address _card, uint256 _surplus) internal returns (IMulticall.Call[] memory) {
+    function _poolDeposit(uint256 _surplus) internal returns (IMulticall.Call[] memory) {
         /// @dev Approve our $EURe to the Balancer Vault
         bytes memory approvalPayload =
             abi.encodeWithSignature("approve(address,uint256)", address(BALANCER_VAULT), _surplus);
@@ -315,7 +307,7 @@ contract RoboSaverVirtualModule {
             abi.encode(StablePoolUserData.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, amountsIn, minimumBPT);
         IVault.JoinPoolRequest memory request = IVault.JoinPoolRequest(assets, maxAmountsIn, userData, false);
         bytes memory joinPoolPayload =
-            abi.encodeWithSelector(IVault.joinPool.selector, BPT_STEUR_EURE_POOL_ID, _card, _card, request);
+            abi.encodeWithSelector(IVault.joinPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, CARD, request);
 
         /// @dev Batch approval and pool join into a multicall
         IMulticall.Call[] memory calls_ = new IMulticall.Call[](2);
@@ -328,7 +320,7 @@ contract RoboSaverVirtualModule {
         delayModule.execTransactionFromModule(MULTICALL3, 0, multicallPayload, 1);
 
         emit AdjustPoolTxDataQueued(MULTICALL3, abi.encode(calls_));
-        emit PoolDepositQueued(_card, _surplus, block.timestamp);
+        emit PoolDepositQueued(CARD, _surplus, block.timestamp);
 
         return calls_;
     }
