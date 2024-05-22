@@ -30,8 +30,7 @@ contract RoboSaverVirtualModule {
                                    CONSTANTS
     //////////////////////////////////////////////////////////////////////////*/
 
-    uint256 constant IMPACT = 9_800;
-    uint256 constant MAX_BPS = 10_000;
+    uint16 constant MAX_BPS = 10_000;
 
     address public constant MULTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
     address public immutable CARD;
@@ -54,39 +53,46 @@ contract RoboSaverVirtualModule {
 
     address public keeper;
     uint256 public buffer;
+    uint16 public slippage;
 
     /*//////////////////////////////////////////////////////////////////////////
                                        EVENTS
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @notice Emitted when a withdrawal pool transaction is being queued up.
-    /// @param safe The address of the card.
+    /// @notice Emitted when a withdrawal pool transaction is being queued up
+    /// @param safe The address of the card
     /// @param amount The amount of $EURe to withdraw from the pool
-    /// @param timestamp The timestamp of the transaction.
+    /// @param timestamp The timestamp of the transaction
     event PoolWithdrawalQueued(address indexed safe, uint256 amount, uint256 timestamp);
 
-    /// @notice Emitted when a deposit pool transaction is being queued up.
-    /// @param safe The address of the card.
+    /// @notice Emitted when a deposit pool transaction is being queued up
+    /// @param safe The address of the card
     /// @param amount The amount of $EURe to deposit into the pool
-    /// @param timestamp The timestamp of the transaction.
+    /// @param timestamp The timestamp of the transaction
     event PoolDepositQueued(address indexed safe, uint256 amount, uint256 timestamp);
 
-    /// @notice Emitted when an adjustment pool transaction is being queued up.
-    /// @param target The address of the target contract.
-    /// @param payload The payload of the transaction to be executed on the target contract.
+    /// @notice Emitted when an adjustment pool transaction is being queued up
+    /// @param target The address of the target contract
+    /// @param payload The payload of the transaction to be executed on the target contract
     event AdjustPoolTxDataQueued(address indexed target, bytes payload);
 
-    /// @notice Emitted when the admin sets a new buffer value.
-    /// @param admin The address of the contract admin.
-    /// @param oldBuffer The value of the old buffer.
-    /// @param newBuffer The value of the new buffer.
+    /// @notice Emitted when the admin sets a new keeper address
+    /// @param admin The address of the admin
+    /// @param oldKeeper The address of the old keeper
+    /// @param newKeeper The address of the new keeper
+    event SetKeeper(address indexed admin, address oldKeeper, address newKeeper);
+
+    /// @notice Emitted when the admin sets a new buffer value
+    /// @param admin The address of the admin
+    /// @param oldBuffer The value of the old buffer
+    /// @param newBuffer The value of the new buffer
     event SetBuffer(address indexed admin, uint256 oldBuffer, uint256 newBuffer);
 
-    /// @notice Emitted when the admin sets a new keeper address.
-    /// @param admin The address of the contract admin.
-    /// @param oldKeeper The address of the old keeper.
-    /// @param newKeeper The address of the new keeper.
-    event SetKeeper(address indexed admin, address oldKeeper, address newKeeper);
+    /// @notice Emitted when the admin sets a new slippage value
+    /// @param admin The address of the admin
+    /// @param oldSlippage The value of the old slippage
+    /// @param newSlippage The value of the new slippage
+    event SetSlippage(address indexed admin, uint256 oldSlippage, uint256 newSlippage);
 
     /*//////////////////////////////////////////////////////////////////////////
                                        ERRORS
@@ -97,6 +103,8 @@ contract RoboSaverVirtualModule {
 
     error ZeroAddressValue();
     error ZeroUintValue();
+
+    error TooHighBps();
 
     /*//////////////////////////////////////////////////////////////////////////
                                       MODIFIERS
@@ -118,11 +126,12 @@ contract RoboSaverVirtualModule {
                                      CONSTRUCTOR
     //////////////////////////////////////////////////////////////////////////*/
 
-    constructor(address _delayModule, address _rolesModule, address _keeper, uint256 _buffer) {
+    constructor(address _delayModule, address _rolesModule, address _keeper, uint256 _buffer, uint16 _slippage) {
         delayModule = IDelayModifier(_delayModule);
         rolesModule = IRolesModifier(_rolesModule);
         keeper = _keeper;
         buffer = _buffer;
+        slippage = _slippage;
 
         CARD = delayModule.avatar();
         BPT_STEUR_EURE_POOL_ID = BPT_STEUR_EURE.getPoolId();
@@ -131,6 +140,17 @@ contract RoboSaverVirtualModule {
     /*//////////////////////////////////////////////////////////////////////////
                                   EXTERNAL METHODS
     //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Assigns a new keeper address
+    /// @param _keeper The address of the new keeper
+    function setKeeper(address _keeper) external onlyAdmin {
+        if (_keeper == address(0)) revert ZeroAddressValue();
+
+        address oldKeeper = keeper;
+        keeper = _keeper;
+
+        emit SetKeeper(msg.sender, oldKeeper, keeper);
+    }
 
     /// @notice Assigns a new value for the buffer responsible for deciding when there is a surplus
     /// @param _buffer The value of the new buffer
@@ -143,15 +163,15 @@ contract RoboSaverVirtualModule {
         emit SetBuffer(msg.sender, oldBuffer, buffer);
     }
 
-    /// @notice Assigns a new keeper address
-    /// @param _keeper The address of the new keeper
-    function setKeeper(address _keeper) external onlyAdmin {
-        if (_keeper == address(0)) revert ZeroAddressValue();
+    /// @notice Adjust the maximum slippage the user is comfortable with
+    /// @param _slippage The value of the new slippage in bps (so 10_000 is 100%)
+    function setSlippage(uint256 _slippage) external onlyAdmin {
+        if (_slippage >= MAX_BPS) revert TooHighBps();
 
-        address oldKeeper = keeper;
-        keeper = _keeper;
+        uint256 oldSlippage = slippage;
+        slippage = _slippage;
 
-        emit SetKeeper(msg.sender, oldKeeper, keeper);
+        emit SetSlippage(msg.sender, oldSlippage, slippage);
     }
 
     /// @notice Check if there is a surplus or deficit of $EURe on the card
@@ -213,11 +233,11 @@ contract RoboSaverVirtualModule {
         uint256[] memory amountsOut = new uint256[](2);
         amountsOut[1] = _deficit;
 
-        /// @dev Calculate the `maxBPTAmountIn` based on the bpt rate but allow for price impact
+        /// @dev Naive calculation of the `maxBPTAmountIn` based on the bpt rate and slippage %
         bytes memory userData = abi.encode(
             StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT,
             amountsOut,
-            minAmountsOut[2] * MAX_BPS * 1e18 / IMPACT / BPT_STEUR_EURE.getRate()
+            minAmountsOut[2] * MAX_BPS * 1e18 / (MAX_BPS - slippage) / BPT_STEUR_EURE.getRate()
         );
 
         /// @dev Queue the transaction into the delay module
@@ -251,8 +271,8 @@ contract RoboSaverVirtualModule {
         uint256[] memory amountsIn = new uint256[](2);
         amountsIn[1] = _surplus;
 
-        /// @dev Calculate the `minimumBPT` to receive based on the bpt rate but allow for price impact
-        uint256 minimumBPT = _surplus * IMPACT * 1e18 / MAX_BPS / BPT_STEUR_EURE.getRate();
+        /// @dev Naive calculation of the `minimumBPT` to receive based on the bpt rate and slippage %
+        uint256 minimumBPT = _surplus * (MAX_BPS - slippage) * 1e18 / MAX_BPS / BPT_STEUR_EURE.getRate();
         bytes memory userData =
             abi.encode(StablePoolUserData.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, amountsIn, minimumBPT);
 
