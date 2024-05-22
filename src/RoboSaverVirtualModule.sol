@@ -58,14 +58,44 @@ contract RoboSaverVirtualModule {
                                        EVENTS
     //////////////////////////////////////////////////////////////////////////*/
 
+    /// @notice Emitted when a withdrawal pool transaction is being queued up.
+    /// @param safe The address of the card.
+    /// @param amount The amount of $EURe to withdraw from the pool
+    /// @param timestamp The timestamp of the transaction.
     event PoolWithdrawalQueued(address indexed safe, uint256 amount, uint256 timestamp);
+
+    /// @notice Emitted when a deposit pool transaction is being queued up.
+    /// @param safe The address of the card.
+    /// @param amount The amount of $EURe to deposit into the pool
+    /// @param timestamp The timestamp of the transaction.
     event PoolDepositQueued(address indexed safe, uint256 amount, uint256 timestamp);
+
+    /// @notice Emitted when an adjustment pool transaction is being queued up.
+    /// @param target The address of the target contract.
+    /// @param payload The payload of the transaction to be executed on the target contract.
+    event AdjustPoolTxDataQueued(address indexed target, bytes payload);
+
+    /// @notice Emitted when the admin sets a new buffer value.
+    /// @param admin The address of the contract admin.
+    /// @param oldBuffer The value of the old buffer.
+    /// @param newBuffer The value of the new buffer.
+    event SetBuffer(address indexed admin, uint256 oldBuffer, uint256 newBuffer);
+
+    /// @notice Emitted when the admin sets a new keeper address.
+    /// @param admin The address of the contract admin.
+    /// @param oldKeeper The address of the old keeper.
+    /// @param newKeeper The address of the new keeper.
+    event SetKeeper(address indexed admin, address oldKeeper, address newKeeper);
 
     /*//////////////////////////////////////////////////////////////////////////
                                        ERRORS
     //////////////////////////////////////////////////////////////////////////*/
 
     error NotKeeper(address agent);
+    error NotAdmin(address agent);
+
+    error ZeroAddressValue();
+    error ZeroUintValue();
 
     /*//////////////////////////////////////////////////////////////////////////
                                       MODIFIERS
@@ -74,6 +104,12 @@ contract RoboSaverVirtualModule {
     /// @notice Enforce that the function is called by the keeper only
     modifier onlyKeeper() {
         if (msg.sender != keeper) revert NotKeeper(msg.sender);
+        _;
+    }
+
+    /// @notice Enforce that the function is called by the admin only
+    modifier onlyAdmin() {
+        if (msg.sender != CARD) revert NotAdmin(msg.sender);
         _;
     }
 
@@ -93,6 +129,28 @@ contract RoboSaverVirtualModule {
     /*//////////////////////////////////////////////////////////////////////////
                                   EXTERNAL METHODS
     //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Assigns a new value for the buffer responsible for deciding when there is a surplus
+    /// @param _buffer The value of the new buffer
+    function setBuffer(uint256 _buffer) external onlyAdmin {
+        if (_buffer == 0) revert ZeroUintValue();
+
+        uint256 oldBuffer = buffer;
+        buffer = _buffer;
+
+        emit SetBuffer(msg.sender, oldBuffer, buffer);
+    }
+
+    /// @notice Assigns a new keeper address
+    /// @param _keeper The address of the new keeper
+    function setKeeper(address _keeper) external onlyAdmin {
+        if (_keeper == address(0)) revert ZeroAddressValue();
+
+        address oldKeeper = keeper;
+        keeper = _keeper;
+
+        emit SetKeeper(msg.sender, oldKeeper, keeper);
+    }
 
     /// @notice Check if there is a surplus or deficit of $EURe on the card
     /// @return adjustPoolNeeded True if there is a deficit or surplus; false otherwise
@@ -164,6 +222,7 @@ contract RoboSaverVirtualModule {
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
         delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, payload, 0);
 
+        emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), payload);
         emit PoolWithdrawalQueued(_card, _deficit, block.timestamp);
     }
 
@@ -207,6 +266,7 @@ contract RoboSaverVirtualModule {
         /// @dev Last argument `1` stands for `OperationType.DelegateCall`
         delayModule.execTransactionFromModule(MULTICALL3, 0, multicallPayload, 1);
 
+        emit AdjustPoolTxDataQueued(MULTICALL3, multicallPayload);
         emit PoolDepositQueued(_card, _surplus, block.timestamp);
 
         return calls_;
