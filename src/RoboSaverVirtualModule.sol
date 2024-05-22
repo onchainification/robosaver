@@ -201,7 +201,14 @@ contract RoboSaverVirtualModule {
     /// @param _amount The amount of $EURe to deposit or withdraw
     function adjustPool(PoolAction _action, uint256 _amount) external onlyKeeper {
         if (_action == PoolAction.WITHDRAW) {
-            _poolWithdrawal(CARD, _amount);
+            /// @dev Close the pool in case the $EURe available for withdrawal is less than the deficit
+            uint256 withdrawableEure =
+                BPT_STEUR_EURE.balanceOf(CARD) * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / MAX_BPS;
+            if (withdrawableEure < _amount) {
+                _poolClose(CARD, withdrawableEure);
+            } else {
+                _poolWithdrawal(CARD, _amount);
+            }
         } else if (_action == PoolAction.DEPOSIT) {
             _poolDeposit(CARD, _amount);
         }
@@ -210,6 +217,37 @@ contract RoboSaverVirtualModule {
     /*//////////////////////////////////////////////////////////////////////////
                                    INTERNAL METHODS
     //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Close the pool position by withdrawing all to $EURe
+    /// @param _card The address of the card to withdraw to
+    /// @return request_ The exit pool request as per Balancer's interface
+    function _poolClose(address _card, uint256 _minAmountOut)
+        internal
+        returns (IVault.ExitPoolRequest memory request_)
+    {
+        /// @dev All asset related arrays should always follow this (alphabetical) order
+        IAsset[] memory assets = new IAsset[](3);
+        assets[0] = IAsset(address(STEUR));
+        assets[1] = IAsset(address(BPT_STEUR_EURE));
+        assets[2] = IAsset(address(EURE));
+
+        /// @dev Allow for one wei of slippage
+        uint256[] memory minAmountsOut = new uint256[](3);
+        minAmountsOut[2] = _minAmountOut - 1;
+
+        /// @dev The `exitTokenIndex` for $EURe is 2
+        bytes memory userData =
+            abi.encode(StablePoolUserData.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, BPT_STEUR_EURE.balanceOf(_card), 2);
+        request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
+        bytes memory exitPoolPayload =
+            abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
+
+        /// @dev Queue the transaction into the delay module
+        delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, exitPoolPayload, 0);
+
+        emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_));
+        emit PoolWithdrawalQueued(_card, _minAmountOut, block.timestamp);
+    }
 
     /// @notice Withdraw $EURe from the pool
     /// @param _card The address of the card to withdraw to
@@ -234,17 +272,16 @@ contract RoboSaverVirtualModule {
         amountsOut[1] = _deficit;
 
         /// @dev Naive calculation of the `maxBPTAmountIn` based on the bpt rate and slippage %
-        bytes memory userData = abi.encode(
-            StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT,
-            amountsOut,
-            minAmountsOut[2] * MAX_BPS * 1e18 / (MAX_BPS - slippage) / BPT_STEUR_EURE.getRate()
-        );
+        uint256 maxBPTAmountIn = minAmountsOut[2] * MAX_BPS * 1e18 / (MAX_BPS - slippage) / BPT_STEUR_EURE.getRate();
+
+        bytes memory userData =
+            abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn);
+        request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
+        bytes memory exitPoolPayload =
+            abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
 
         /// @dev Queue the transaction into the delay module
-        request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
-        bytes memory payload =
-            abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
-        delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, payload, 0);
+        delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, exitPoolPayload, 0);
 
         emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_));
         emit PoolWithdrawalQueued(_card, _deficit, block.timestamp);
@@ -273,11 +310,10 @@ contract RoboSaverVirtualModule {
 
         /// @dev Naive calculation of the `minimumBPT` to receive based on the bpt rate and slippage %
         uint256 minimumBPT = _surplus * (MAX_BPS - slippage) * 1e18 / MAX_BPS / BPT_STEUR_EURE.getRate();
+
         bytes memory userData =
             abi.encode(StablePoolUserData.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, amountsIn, minimumBPT);
-
         IVault.JoinPoolRequest memory request = IVault.JoinPoolRequest(assets, maxAmountsIn, userData, false);
-
         bytes memory joinPoolPayload =
             abi.encodeWithSelector(IVault.joinPool.selector, BPT_STEUR_EURE_POOL_ID, _card, _card, request);
 
