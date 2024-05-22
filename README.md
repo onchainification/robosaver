@@ -14,7 +14,7 @@ Currently the contract is automated by having a keeper call `checker` to see if 
 
 ### 1.1 External Methods
 
-- `checker()`: determines whether the balance of the card is in surplus or deficit; returns whether an adjustment to the pool is needed and the payload needed to do so
+- `checker()`: a view function that determines whether the balance of the card is in surplus or deficit; returns whether an adjustment to the pool is needed and the payload needed to do so
 - `adjustPool(PoolAction _action, uint256 _amount)`: call the necessary internal method needed to rebalance the pool
 
 ## 2. Installation
