@@ -1,17 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import "forge-std/Test.sol";
-
 import {BaseFixture} from "./BaseFixture.sol";
-
-import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
 
 import {Enum} from "../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 
-import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
-
-contract TopupTest is BaseFixture {
+contract CheckerTest is BaseFixture {
     function testChecker_When_TopupIsRequired() public {
         (bool canExec, bytes memory execPayload) = roboModule.checker();
 
