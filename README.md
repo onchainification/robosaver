@@ -31,6 +31,16 @@ Finally, copy `.env.example` to `.env` and populate it.
 
 Run `forge test -vvvv`.
 
+### 2.3 Local Deployment
+
+```
+$ make startAnvil
+```
+
+```
+$ make deployAnvil
+```
+
 ## 3. Proof of Concept
 
 This project was conceived at an ETHGlobal hackathon; see details here: https://github.com/onchainification/robosaver/releases/tag/v0.0.1-hackathon
