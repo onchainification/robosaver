@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import "forge-std/Test.sol";
+
 import {BaseFixture} from "./BaseFixture.sol";
 
 import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
@@ -60,12 +62,28 @@ contract TopupTest is BaseFixture {
 
         uint256 initialEureBal = IERC20(EURE).balanceOf(GNOSIS_SAFE);
 
+        // listen for `AdjustPoolTxDataQueued` event to capture the payload
+        vm.recordLogs();
+
         vm.prank(KEEPER);
-        bytes memory execPayload_ = roboModule.adjustPool(_action, _amount);
+        roboModule.adjustPool(_action, _amount);
+
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        assertEq(
+            entries[1].topics[0],
+            keccak256("AdjustPoolTxDataQueued(address,bytes)"),
+            "Topic: not matching 0xd6f543d0f78fc911805eb7976b83bb1e8cc25c931073876bab9df7a09813cf0b"
+        );
+        assertEq(
+            address(uint160(uint256(entries[1].topics[1]))),
+            address(roboModule.BALANCER_VAULT()),
+            "Target: expected to be the BALANCER_VAULT address"
+        );
 
         vm.warp(block.timestamp + COOL_DOWN_PERIOD);
 
-        IVault.ExitPoolRequest memory request = abi.decode(execPayload_, (IVault.ExitPoolRequest));
+        IVault.ExitPoolRequest memory request =
+            abi.decode(abi.decode(entries[1].data, (bytes)), (IVault.ExitPoolRequest));
 
         bytes memory execTxPayload = abi.encodeWithSelector(
             IVault.exitPool.selector, roboModule.BPT_STEUR_EURE_POOL_ID(), GNOSIS_SAFE, payable(GNOSIS_SAFE), request

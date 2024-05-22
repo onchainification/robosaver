@@ -198,12 +198,11 @@ contract RoboSaverVirtualModule {
     /// @notice Adjust the pool by depositing or withdrawing $EURe
     /// @param _action The action to take: deposit or withdraw
     /// @param _amount The amount of $EURe to deposit or withdraw
-    /// @return execPayload_ The payload of the transaction to execute
-    function adjustPool(PoolAction _action, uint256 _amount) external onlyKeeper returns (bytes memory execPayload_) {
+    function adjustPool(PoolAction _action, uint256 _amount) external onlyKeeper {
         if (_action == PoolAction.WITHDRAW) {
-            execPayload_ = abi.encode(_poolWithdrawal(CARD, _amount));
+            _poolWithdrawal(CARD, _amount);
         } else if (_action == PoolAction.DEPOSIT) {
-            execPayload_ = abi.encode(_poolDeposit(CARD, _amount));
+            _poolDeposit(CARD, _amount);
         }
     }
 
@@ -246,7 +245,7 @@ contract RoboSaverVirtualModule {
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
         delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, payload, 0);
 
-        emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), payload);
+        emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_));
         emit PoolWithdrawalQueued(_card, _deficit, block.timestamp);
     }
 
@@ -291,7 +290,7 @@ contract RoboSaverVirtualModule {
         /// @dev Last argument `1` stands for `OperationType.DelegateCall`
         delayModule.execTransactionFromModule(MULTICALL3, 0, multicallPayload, 1);
 
-        emit AdjustPoolTxDataQueued(MULTICALL3, multicallPayload);
+        emit AdjustPoolTxDataQueued(MULTICALL3, abi.encode(calls_));
         emit PoolDepositQueued(_card, _surplus, block.timestamp);
 
         return calls_;
