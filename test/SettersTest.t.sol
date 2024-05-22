@@ -71,7 +71,7 @@ contract SettersTest is BaseFixture {
         uint16 newSlippage = 777;
 
         vm.expectEmit(true, true, true, true);
-        emit SetSlippage(roboModule.CARD(), oldSlippage, newSlippage);
+        emit RoboSaverVirtualModule.SetSlippage(roboModule.CARD(), oldSlippage, newSlippage);
 
         vm.prank(roboModule.CARD());
         roboModule.setSlippage(newSlippage);
