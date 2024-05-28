@@ -20,9 +20,22 @@ contract RoboSaverVirtualModule {
     /// @notice Enum representing the different types of pool actions
     /// @custom:value0 WITHDRAW Withdraw $EURe from the pool to the card
     /// @custom:value1 DEPOSIT Deposit $EURe from the card into the pool
+    /// @custom:value2 EXEC_QUEUE_POOL_ACTION Execute the queued pool action
     enum PoolAction {
         WITHDRAW,
-        DEPOSIT
+        DEPOSIT,
+        EXEC_QUEUE_POOL_ACTION
+    }
+
+    /// @notice Struct representing the data needed to execute a queud transaction
+    /// @dev Nonce allow us to determine if the transaction queued was originated from this virtual module
+    /// @param nonce The nonce of the queued transaction
+    /// @param target The address of the target contract
+    /// @param payload The payload of the transaction to be executed on the target contract
+    struct TxQueueData {
+        uint256 nonce;
+        address target;
+        bytes payload;
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -53,6 +66,9 @@ contract RoboSaverVirtualModule {
 
     address public keeper;
     uint256 public buffer;
+
+    /// @dev Keeps track of the transaction queued up by the virtual module and allows internally to call `executeNextTx`
+    TxQueueData public txQueueData;
 
     /*//////////////////////////////////////////////////////////////////////////
                                        EVENTS
@@ -157,7 +173,12 @@ contract RoboSaverVirtualModule {
     /// @return adjustPoolNeeded True if there is a deficit or surplus; false otherwise
     /// @return execPayload The payload of the needed transaction
     function checker() external view returns (bool adjustPoolNeeded, bytes memory execPayload) {
-        if (_isTxQueued()) return (false, bytes("Transaction in queue, wait for it to be executed"));
+        if (_isExternalTxQueued()) return (false, bytes("Transaction in queue, wait for it to be executed"));
+
+        /// @notice checks if there is a transaction queued up in the delay module by the virtual module itself
+        if (txQueueData.nonce != 0) {
+            return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
+        }
 
         uint256 balance = EURE.balanceOf(CARD);
         (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
@@ -184,6 +205,8 @@ contract RoboSaverVirtualModule {
             _poolWithdrawal(CARD, _amount);
         } else if (_action == PoolAction.DEPOSIT) {
             _poolDeposit(CARD, _amount);
+        } else if (_action == PoolAction.EXEC_QUEUE_POOL_ACTION) {
+            _executeNextTx();
         }
     }
 
@@ -223,6 +246,8 @@ contract RoboSaverVirtualModule {
         bytes memory payload =
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
         delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, payload, 0);
+
+        txQueueData = TxQueueData(delayModule.queueNonce(), address(BALANCER_VAULT), payload);
 
         emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_));
         emit PoolWithdrawalQueued(_card, _deficit, block.timestamp);
@@ -268,15 +293,26 @@ contract RoboSaverVirtualModule {
         /// @dev Last argument `1` stands for `OperationType.DelegateCall`
         delayModule.execTransactionFromModule(MULTICALL3, 0, multicallPayload, 1);
 
+        txQueueData = TxQueueData(delayModule.queueNonce(), MULTICALL3, multicallPayload);
+
         emit AdjustPoolTxDataQueued(MULTICALL3, abi.encode(calls_));
         emit PoolDepositQueued(_card, _surplus, block.timestamp);
 
         return calls_;
     }
 
-    /// @notice Check if there is a transaction queued up in the delay module
+    /// @dev Execute the next transaction in the queue using the storage variable `txQueueData`
+    function _executeNextTx() internal {
+        address cachedTarget = txQueueData.target;
+        delayModule.executeNextTx(cachedTarget, 0, txQueueData.payload, cachedTarget == MULTICALL3 ? 1 : 0);
+        // sets every field in the struct to its default value
+        delete txQueueData;
+    }
+
+    /// @notice Check if there is a transaction queued up in the delay module by an external entity. Not our own virtual module.
     /// @return isTxQueued_ True if there is a transaction queued up; false otherwise
-    function _isTxQueued() internal view returns (bool isTxQueued_) {
-        if (delayModule.txNonce() != delayModule.queueNonce()) isTxQueued_ = true;
+    function _isExternalTxQueued() internal view returns (bool isTxQueued_) {
+        uint256 cachedQueueNonce = delayModule.queueNonce();
+        if (delayModule.txNonce() != cachedQueueNonce && cachedQueueNonce != txQueueData.nonce) isTxQueued_ = true;
     }
 }
