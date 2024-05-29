@@ -46,8 +46,8 @@ contract TopupBptTest is BaseFixture {
 
         assertEq(
             entries[1].topics[0],
-            keccak256("AdjustPoolTxDataQueued(address,bytes)"),
-            "Topic: not matching 0xd6f543d0f78fc911805eb7976b83bb1e8cc25c931073876bab9df7a09813cf0b"
+            keccak256("AdjustPoolTxDataQueued(address,bytes,uint256)"),
+            "Topic: not matching 0x1e06c48e3eae1d5087ad1d103fe5666fb3fd180f582006fb14e9635c596736d7"
         );
         assertEq(
             address(uint160(uint256(entries[1].topics[1]))),
@@ -57,13 +57,21 @@ contract TopupBptTest is BaseFixture {
 
         vm.warp(block.timestamp + COOL_DOWN_PERIOD);
 
+        // generate the `execPayload` for the `MULTICALL3` contract with the event argument to check against in storage value
+        IMulticall.Call[] memory calls_ = abi.decode(abi.decode(entries[1].data, (bytes)), (IMulticall.Call[]));
+
+        bytes memory eventPayloadGenerated = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
+
+        _assertPreStorageValuesNextTxExec(roboModule.MULTICALL3(), eventPayloadGenerated);
+
         // two actions:
         // 1. eure exact appproval to `BALANCER_VAULT`
         // 2. join the pool single sided with the excess
-        IMulticall.Call[] memory calls_ = abi.decode(abi.decode(entries[1].data, (bytes)), (IMulticall.Call[]));
+        vm.prank(TOP_UP_AGENT);
+        roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0);
 
-        bytes memory multiCallPayalod = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
-        delayModule.executeNextTx(roboModule.MULTICALL3(), 0, multiCallPayalod, Enum.Operation.DelegateCall);
+        // ensure default values at `txQueueData` after execution
+        _assertPostDefaultValuesNextTxExec();
 
         assertLt(
             IERC20(EURE).balanceOf(GNOSIS_SAFE),

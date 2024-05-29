@@ -150,4 +150,19 @@ contract BaseFixture is Test {
         vm.prank(GNOSIS_SAFE);
         delayModule.execTransactionFromModule(EURE, 0, payloadErc20Transfer, Enum.Operation.Call);
     }
+
+    function _assertPreStorageValuesNextTxExec(address _expectedTarget, bytes memory _eventPayloadGenerated) internal {
+        (uint256 nonce, address target, bytes memory payload) = roboModule.txQueueData();
+        assertGt(nonce, 0);
+        assertEq(target, _expectedTarget);
+        assertEq(payload, _eventPayloadGenerated);
+    }
+
+    function _assertPostDefaultValuesNextTxExec() internal {
+        bytes memory emptyBytes;
+        (uint256 nonce, address target, bytes memory payload) = roboModule.txQueueData();
+        assertEq(nonce, 0);
+        assertEq(target, address(0));
+        assertEq(payload, emptyBytes);
+    }
 }
