@@ -87,11 +87,12 @@ contract RoboSaverVirtualModule {
     /// @param timestamp The timestamp of the transaction
     event PoolDepositQueued(address indexed safe, uint256 amount, uint256 timestamp);
 
-    /// @notice Emitted when an adjustment pool transaction is being queued up
-    /// @dev Event is leveraged by off-chain service to execute the queued transaction
-    /// @param target The address of the target contract
-    /// @param payload The payload of the transaction to be executed on the target contract
-    event AdjustPoolTxDataQueued(address indexed target, bytes payload);
+    /// @notice Emitted when an adjustment pool transaction is being queued up.
+    /// @dev Event is leverage by off-chain service to execute the queued transaction.
+    /// @param target The address of the target contract.
+    /// @param payload The payload of the transaction to be executed on the target contract.
+    /// @param queueNonce The nonce of the queued transaction.
+    event AdjustPoolTxDataQueued(address indexed target, bytes payload, uint256 queueNonce);
 
     /// @notice Emitted when the admin sets a new keeper address
     /// @param admin The address of the admin
@@ -301,9 +302,10 @@ contract RoboSaverVirtualModule {
         /// @dev Queue the transaction into the delay module
         delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, exitPoolPayload, 0);
 
-        txQueueData = TxQueueData(delayModule.queueNonce(), address(BALANCER_VAULT), payload);
+        uint256 cachedQueueNonce = delayModule.queueNonce();
+        txQueueData = TxQueueData(cachedQueueNonce, address(BALANCER_VAULT), payload);
 
-        emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_));
+        emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_), cachedQueueNonce);
         emit PoolWithdrawalQueued(CARD, _deficit, block.timestamp);
     }
 
@@ -346,9 +348,10 @@ contract RoboSaverVirtualModule {
         /// @dev Last argument `1` stands for `OperationType.DelegateCall`
         delayModule.execTransactionFromModule(MULTICALL3, 0, multicallPayload, 1);
 
-        txQueueData = TxQueueData(delayModule.queueNonce(), MULTICALL3, multicallPayload);
+        uint256 cachedQueueNonce = delayModule.queueNonce();
+        txQueueData = TxQueueData(cachedQueueNonce, MULTICALL3, multicallPayload);
 
-        emit AdjustPoolTxDataQueued(MULTICALL3, abi.encode(calls_));
+        emit AdjustPoolTxDataQueued(MULTICALL3, abi.encode(calls_), cachedQueueNonce);
         emit PoolDepositQueued(CARD, _surplus, block.timestamp);
 
         return calls_;
@@ -358,6 +361,7 @@ contract RoboSaverVirtualModule {
     function _executeNextTx() internal {
         address cachedTarget = txQueueData.target;
         delayModule.executeNextTx(cachedTarget, 0, txQueueData.payload, cachedTarget == MULTICALL3 ? 1 : 0);
+
         // sets every field in the struct to its default value
         delete txQueueData;
     }
