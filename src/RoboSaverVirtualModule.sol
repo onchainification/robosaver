@@ -29,7 +29,7 @@ contract RoboSaverVirtualModule {
     }
 
     /// @notice Struct representing the data needed to execute a queued transaction
-    /// @dev Nonce allow us to determine if the transaction queued was originated from this virtual module
+    /// @dev Nonce allows us to determine if the transaction queued originated from this virtual module
     /// @param nonce The nonce of the queued transaction
     /// @param target The address of the target contract
     /// @param payload The payload of the transaction to be executed on the target contract
