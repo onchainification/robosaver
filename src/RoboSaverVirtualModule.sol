@@ -17,6 +17,14 @@ contract RoboSaverVirtualModule {
                                      DATA TYPES
     //////////////////////////////////////////////////////////////////////////*/
 
+    /// @notice Operation type of module transaction
+    /// @custom:value0 Call Executes a specific function within that contract's context
+    /// @custom:value1 DelegateCall Executes the called contract's code within the context of the calling contract
+    enum DelayModuleOperation {
+        Call,
+        DelegateCall
+    }
+
     /// @notice Enum representing the different types of pool actions
     /// @custom:value0 WITHDRAW Withdraw $EURe from the pool to the card
     /// @custom:value1 DEPOSIT Deposit $EURe from the card into the pool
@@ -250,7 +258,7 @@ contract RoboSaverVirtualModule {
         request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
         bytes memory payload =
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
-        delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, payload, 0);
+        delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, payload, uint8(DelayModuleOperation.Call));
 
         uint256 cachedQueueNonce = delayModule.queueNonce();
         txQueueData = TxQueueData(cachedQueueNonce, address(BALANCER_VAULT), payload);
@@ -296,8 +304,7 @@ contract RoboSaverVirtualModule {
         bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
 
         /// @dev Queue the transaction into the delay module
-        /// @dev Last argument `1` stands for `OperationType.DelegateCall`
-        delayModule.execTransactionFromModule(MULTICALL3, 0, multicallPayload, 1);
+        delayModule.execTransactionFromModule(MULTICALL3, 0, multicallPayload, uint8(DelayModuleOperation.DelegateCall));
 
         uint256 cachedQueueNonce = delayModule.queueNonce();
         txQueueData = TxQueueData(cachedQueueNonce, MULTICALL3, multicallPayload);
@@ -311,7 +318,9 @@ contract RoboSaverVirtualModule {
     /// @dev Execute the next transaction in the queue using the storage variable `txQueueData`
     function _executeNextTx() internal {
         address cachedTarget = txQueueData.target;
-        delayModule.executeNextTx(cachedTarget, 0, txQueueData.payload, cachedTarget == MULTICALL3 ? 1 : 0);
+        uint8 operation =
+            cachedTarget == MULTICALL3 ? uint8(DelayModuleOperation.DelegateCall) : uint8(DelayModuleOperation.Call);
+        delayModule.executeNextTx(cachedTarget, 0, txQueueData.payload, operation);
 
         // sets every field in the struct to its default value
         delete txQueueData;
