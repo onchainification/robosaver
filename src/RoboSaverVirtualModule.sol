@@ -115,6 +115,8 @@ contract RoboSaverVirtualModule {
     error ZeroAddressValue();
     error ZeroUintValue();
 
+    error ExternalTxIsQueued();
+
     /*//////////////////////////////////////////////////////////////////////////
                                       MODIFIERS
     //////////////////////////////////////////////////////////////////////////*/
@@ -202,6 +204,8 @@ contract RoboSaverVirtualModule {
     /// @param _action The action to take: deposit or withdraw
     /// @param _amount The amount of $EURe to deposit or withdraw
     function adjustPool(PoolAction _action, uint256 _amount) external onlyKeeper {
+        if (_isExternalTxQueued()) revert ExternalTxIsQueued();
+
         if (_action == PoolAction.WITHDRAW) {
             _poolWithdrawal(CARD, _amount);
         } else if (_action == PoolAction.DEPOSIT) {

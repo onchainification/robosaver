@@ -151,14 +151,17 @@ contract BaseFixture is Test {
         delayModule.execTransactionFromModule(EURE, 0, payloadErc20Transfer, Enum.Operation.Call);
     }
 
-    function _assertPreStorageValuesNextTxExec(address _expectedTarget, bytes memory _eventPayloadGenerated) internal {
+    function _assertPreStorageValuesNextTxExec(address _expectedTarget, bytes memory _eventPayloadGenerated)
+        internal
+        view
+    {
         (uint256 nonce, address target, bytes memory payload) = roboModule.txQueueData();
         assertGt(nonce, 0);
         assertEq(target, _expectedTarget);
         assertEq(payload, _eventPayloadGenerated);
     }
 
-    function _assertPostDefaultValuesNextTxExec() internal {
+    function _assertPostDefaultValuesNextTxExec() internal view {
         bytes memory emptyBytes;
         (uint256 nonce, address target, bytes memory payload) = roboModule.txQueueData();
         assertEq(nonce, 0);
