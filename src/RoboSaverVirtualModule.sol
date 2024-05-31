@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IMulticall} from "@gnosispay-kit/interfaces/IMulticall.sol";
 import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
-import {IDelayModifier} from "@gnosispay-kit/interfaces/IDelayModifier.sol";
+import {IDelayModifier} from "./interfaces/delayModule/IDelayModifier.sol";
 
 import {IAsset} from "@balancer-v2/interfaces/contracts/vault/IAsset.sol";
 import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
@@ -20,9 +20,22 @@ contract RoboSaverVirtualModule {
     /// @notice Enum representing the different types of pool actions
     /// @custom:value0 WITHDRAW Withdraw $EURe from the pool to the card
     /// @custom:value1 DEPOSIT Deposit $EURe from the card into the pool
+    /// @custom:value2 EXEC_QUEUE_POOL_ACTION Execute the queued pool action
     enum PoolAction {
         WITHDRAW,
-        DEPOSIT
+        DEPOSIT,
+        EXEC_QUEUE_POOL_ACTION
+    }
+
+    /// @notice Struct representing the data needed to execute a queued transaction
+    /// @dev Nonce allows us to determine if the transaction queued originated from this virtual module
+    /// @param nonce The nonce of the queued transaction
+    /// @param target The address of the target contract
+    /// @param payload The payload of the transaction to be executed on the target contract
+    struct TxQueueData {
+        uint256 nonce;
+        address target;
+        bytes payload;
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -54,6 +67,9 @@ contract RoboSaverVirtualModule {
     address public keeper;
     uint256 public buffer;
 
+    /// @dev Keeps track of the transaction queued up by the virtual module and allows internally to call `executeNextTx`
+    TxQueueData public txQueueData;
+
     /*//////////////////////////////////////////////////////////////////////////
                                        EVENTS
     //////////////////////////////////////////////////////////////////////////*/
@@ -74,7 +90,15 @@ contract RoboSaverVirtualModule {
     /// @dev Event is leverage by off-chain service to execute the queued transaction.
     /// @param target The address of the target contract.
     /// @param payload The payload of the transaction to be executed on the target contract.
-    event AdjustPoolTxDataQueued(address indexed target, bytes payload);
+    /// @param queueNonce The nonce of the queued transaction.
+    event AdjustPoolTxDataQueued(address indexed target, bytes payload, uint256 queueNonce);
+
+    /// @notice Emitted when an adjustment pool transaction is executed in the delay module.
+    /// @param target The address of the target contract.
+    /// @param payload The payload of the transaction executed on the target contract.
+    /// @param nonce The nonce of the executed transaction tracking the delay module counting.
+    /// @param timestamp The timestamp of the transaction.
+    event AdjustPoolTxExecuted(address indexed target, bytes payload, uint256 nonce, uint256 timestamp);
 
     /// @notice Emitted when the admin sets a new buffer value.
     /// @param admin The address of the contract admin.
@@ -97,6 +121,8 @@ contract RoboSaverVirtualModule {
 
     error ZeroAddressValue();
     error ZeroUintValue();
+
+    error ExternalTxIsQueued();
 
     /*//////////////////////////////////////////////////////////////////////////
                                       MODIFIERS
@@ -157,7 +183,12 @@ contract RoboSaverVirtualModule {
     /// @return adjustPoolNeeded True if there is a deficit or surplus; false otherwise
     /// @return execPayload The payload of the needed transaction
     function checker() external view returns (bool adjustPoolNeeded, bytes memory execPayload) {
-        if (_isTxQueued()) return (false, bytes("Transaction in queue, wait for it to be executed"));
+        if (_isExternalTxQueued()) return (false, bytes("External transaction in queue, wait for it to be executed"));
+
+        /// @notice checks if there is a transaction queued up in the delay module by the virtual module itself
+        if (txQueueData.nonce != 0) {
+            return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
+        }
 
         uint256 balance = EURE.balanceOf(CARD);
         (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
@@ -180,10 +211,14 @@ contract RoboSaverVirtualModule {
     /// @param _action The action to take: deposit or withdraw
     /// @param _amount The amount of $EURe to deposit or withdraw
     function adjustPool(PoolAction _action, uint256 _amount) external onlyKeeper {
+        if (_isExternalTxQueued()) revert ExternalTxIsQueued();
+
         if (_action == PoolAction.WITHDRAW) {
             _poolWithdrawal(CARD, _amount);
         } else if (_action == PoolAction.DEPOSIT) {
             _poolDeposit(CARD, _amount);
+        } else if (_action == PoolAction.EXEC_QUEUE_POOL_ACTION) {
+            _executeNextTx();
         }
     }
 
@@ -222,9 +257,14 @@ contract RoboSaverVirtualModule {
         request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
         bytes memory payload =
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
-        delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, payload, 0);
+        delayModule.execTransactionFromModule(
+            address(BALANCER_VAULT), 0, payload, IDelayModifier.DelayModuleOperation.Call
+        );
 
-        emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_));
+        uint256 cachedQueueNonce = delayModule.queueNonce();
+        txQueueData = TxQueueData(cachedQueueNonce, address(BALANCER_VAULT), payload);
+
+        emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_), cachedQueueNonce);
         emit PoolWithdrawalQueued(_card, _deficit, block.timestamp);
     }
 
@@ -265,18 +305,38 @@ contract RoboSaverVirtualModule {
         bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
 
         /// @dev Queue the transaction into the delay module
-        /// @dev Last argument `1` stands for `OperationType.DelegateCall`
-        delayModule.execTransactionFromModule(MULTICALL3, 0, multicallPayload, 1);
+        delayModule.execTransactionFromModule(
+            MULTICALL3, 0, multicallPayload, IDelayModifier.DelayModuleOperation.DelegateCall
+        );
 
-        emit AdjustPoolTxDataQueued(MULTICALL3, abi.encode(calls_));
+        uint256 cachedQueueNonce = delayModule.queueNonce();
+        txQueueData = TxQueueData(cachedQueueNonce, MULTICALL3, multicallPayload);
+
+        emit AdjustPoolTxDataQueued(MULTICALL3, abi.encode(calls_), cachedQueueNonce);
         emit PoolDepositQueued(_card, _surplus, block.timestamp);
 
         return calls_;
     }
 
-    /// @notice Check if there is a transaction queued up in the delay module
+    /// @dev Execute the next transaction in the queue using the storage variable `txQueueData`
+    function _executeNextTx() internal {
+        address cachedTarget = txQueueData.target;
+        IDelayModifier.DelayModuleOperation operation = cachedTarget == MULTICALL3
+            ? IDelayModifier.DelayModuleOperation.DelegateCall
+            : IDelayModifier.DelayModuleOperation.Call;
+
+        delayModule.executeNextTx(cachedTarget, 0, txQueueData.payload, operation);
+
+        emit AdjustPoolTxExecuted(cachedTarget, txQueueData.payload, txQueueData.nonce, block.timestamp);
+
+        // sets every field in the struct to its default value
+        delete txQueueData;
+    }
+
+    /// @notice Check if there is a transaction queued up in the delay module by an external entity. Not our own virtual module.
     /// @return isTxQueued_ True if there is a transaction queued up; false otherwise
-    function _isTxQueued() internal view returns (bool isTxQueued_) {
-        if (delayModule.txNonce() != delayModule.queueNonce()) isTxQueued_ = true;
+    function _isExternalTxQueued() internal view returns (bool isTxQueued_) {
+        uint256 cachedQueueNonce = delayModule.queueNonce();
+        if (delayModule.txNonce() != cachedQueueNonce && cachedQueueNonce != txQueueData.nonce) isTxQueued_ = true;
     }
 }

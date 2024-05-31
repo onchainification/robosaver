@@ -51,8 +51,8 @@ contract TopupTest is BaseFixture {
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(
             entries[1].topics[0],
-            keccak256("AdjustPoolTxDataQueued(address,bytes)"),
-            "Topic: not matching 0xd6f543d0f78fc911805eb7976b83bb1e8cc25c931073876bab9df7a09813cf0b"
+            keccak256("AdjustPoolTxDataQueued(address,bytes,uint256)"),
+            "Topic: not matching 0x1e06c48e3eae1d5087ad1d103fe5666fb3fd180f582006fb14e9635c596736d7"
         );
         assertEq(
             address(uint160(uint256(entries[1].topics[1]))),
@@ -62,13 +62,24 @@ contract TopupTest is BaseFixture {
 
         vm.warp(block.timestamp + COOL_DOWN_PERIOD);
 
+        // generate the `execPayload` for the `BALANCER_VAULT` contract with the event argument to check against in storage value
         IVault.ExitPoolRequest memory request =
             abi.decode(abi.decode(entries[1].data, (bytes)), (IVault.ExitPoolRequest));
 
-        bytes memory execTxPayload = abi.encodeWithSelector(
+        bytes memory eventPayloadGenerated = abi.encodeWithSelector(
             IVault.exitPool.selector, roboModule.BPT_STEUR_EURE_POOL_ID(), GNOSIS_SAFE, payable(GNOSIS_SAFE), request
         );
-        delayModule.executeNextTx(address(roboModule.BALANCER_VAULT()), 0, execTxPayload, Enum.Operation.Call);
+
+        _assertPreStorageValuesNextTxExec(address(roboModule.BALANCER_VAULT()), eventPayloadGenerated);
+
+        vm.prank(TOP_UP_AGENT);
+        roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0);
+
+        // (uint256 nonce, address target, bytes memory execTxPayload) = roboModule.txQueueData();
+        // delayModule.executeNextTx(address(roboModule.BALANCER_VAULT()), 0, execTxPayload, Enum.Operation.Call);
+
+        // ensure default values at `txQueueData` after execution
+        _assertPostDefaultValuesNextTxExec();
 
         assertLt(
             IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE),
