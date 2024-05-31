@@ -27,7 +27,7 @@ contract RoboSaverVirtualModule {
         EXEC_QUEUE_POOL_ACTION
     }
 
-    /// @notice Struct representing the data needed to execute a queud transaction
+    /// @notice Struct representing the data needed to execute a queued transaction
     /// @dev Nonce allow us to determine if the transaction queued was originated from this virtual module
     /// @param nonce The nonce of the queued transaction
     /// @param target The address of the target contract
