@@ -174,7 +174,7 @@ contract RoboSaverVirtualModule {
     /// @return adjustPoolNeeded True if there is a deficit or surplus; false otherwise
     /// @return execPayload The payload of the needed transaction
     function checker() external view returns (bool adjustPoolNeeded, bytes memory execPayload) {
-        if (_isExternalTxQueued()) return (false, bytes("Transaction in queue, wait for it to be executed"));
+        if (_isExternalTxQueued()) return (false, bytes("External transaction in queue, wait for it to be executed"));
 
         /// @notice checks if there is a transaction queued up in the delay module by the virtual module itself
         if (txQueueData.nonce != 0) {
