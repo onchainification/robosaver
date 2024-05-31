@@ -124,6 +124,8 @@ contract RoboSaverVirtualModule {
 
     error TooHighBps();
 
+    error ExternalTxIsQueued();
+
     /*//////////////////////////////////////////////////////////////////////////
                                       MODIFIERS
     //////////////////////////////////////////////////////////////////////////*/
@@ -224,6 +226,8 @@ contract RoboSaverVirtualModule {
     /// @param _action The action to take: deposit or withdraw
     /// @param _amount The amount of $EURe to deposit or withdraw
     function adjustPool(PoolAction _action, uint256 _amount) external onlyKeeper {
+        if (_isExternalTxQueued()) revert ExternalTxIsQueued();
+
         if (_action == PoolAction.WITHDRAW) {
             /// @dev Close the pool in case the $EURe available for withdrawal is less than the deficit
             uint256 withdrawableEure =

@@ -38,6 +38,6 @@ contract CheckerTest is BaseFixture {
         (canExec, execPayload) = roboModule.checker();
 
         assertFalse(canExec);
-        assertEq(execPayload, bytes("Transaction in queue, wait for it to be executed"));
+        assertEq(execPayload, bytes("External transaction in queue, wait for it to be executed"));
     }
 }
