@@ -3,8 +3,9 @@ pragma solidity ^0.8.25;
 
 import {IMulticall} from "@gnosispay-kit/interfaces/IMulticall.sol";
 import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
-import {IDelayModifier} from "@gnosispay-kit/interfaces/IDelayModifier.sol";
-import {IComposableStablePool} from "src/interfaces/IComposableStablePool.sol";
+
+import {IComposableStablePool} from "./interfaces/IComposableStablePool.sol";
+import {IDelayModifier} from "./interfaces/delayModule/IDelayModifier.sol";
 
 import {IAsset} from "@balancer-v2/interfaces/contracts/vault/IAsset.sol";
 import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
@@ -17,14 +18,6 @@ contract RoboSaverVirtualModule {
     /*//////////////////////////////////////////////////////////////////////////
                                      DATA TYPES
     //////////////////////////////////////////////////////////////////////////*/
-
-    /// @notice Operation type of module transaction
-    /// @custom:value0 Call Executes a specific function within that contract's context
-    /// @custom:value1 DelegateCall Executes the called contract's code within the context of the calling contract
-    enum DelayModuleOperation {
-        Call,
-        DelegateCall
-    }
 
     /// @notice Enum representing the different types of pool actions
     /// @custom:value0 WITHDRAW Withdraw $EURe from the pool to the card
@@ -322,7 +315,9 @@ contract RoboSaverVirtualModule {
         request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
         bytes memory payload =
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
-        delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, payload, uint8(DelayModuleOperation.Call));
+        delayModule.execTransactionFromModule(
+            address(BALANCER_VAULT), 0, payload, IDelayModifier.DelayModuleOperation.Call
+        );
 
         uint256 cachedQueueNonce = delayModule.queueNonce();
         txQueueData = TxQueueData(cachedQueueNonce, address(BALANCER_VAULT), payload);
@@ -367,7 +362,9 @@ contract RoboSaverVirtualModule {
         bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
 
         /// @dev Queue the transaction into the delay module
-        delayModule.execTransactionFromModule(MULTICALL3, 0, multicallPayload, uint8(DelayModuleOperation.DelegateCall));
+        delayModule.execTransactionFromModule(
+            MULTICALL3, 0, multicallPayload, IDelayModifier.DelayModuleOperation.DelegateCall
+        );
 
         uint256 cachedQueueNonce = delayModule.queueNonce();
         txQueueData = TxQueueData(cachedQueueNonce, MULTICALL3, multicallPayload);
@@ -381,8 +378,9 @@ contract RoboSaverVirtualModule {
     /// @dev Execute the next transaction in the queue using the storage variable `txQueueData`
     function _executeNextTx() internal {
         address cachedTarget = txQueueData.target;
-        uint8 operation =
-            cachedTarget == MULTICALL3 ? uint8(DelayModuleOperation.DelegateCall) : uint8(DelayModuleOperation.Call);
+        IDelayModifier.DelayModuleOperation operation = cachedTarget == MULTICALL3
+            ? IDelayModifier.DelayModuleOperation.DelegateCall
+            : IDelayModifier.DelayModuleOperation.Call;
 
         delayModule.executeNextTx(cachedTarget, 0, txQueueData.payload, operation);
 
