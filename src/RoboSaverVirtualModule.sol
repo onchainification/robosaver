@@ -101,6 +101,13 @@ contract RoboSaverVirtualModule {
     /// @param queueNonce The nonce of the queued transaction.
     event AdjustPoolTxDataQueued(address indexed target, bytes payload, uint256 queueNonce);
 
+    /// @notice Emitted when an adjustment pool transaction is executed in the delay module.
+    /// @param target The address of the target contract.
+    /// @param payload The payload of the transaction executed on the target contract.
+    /// @param nonce The nonce of the executed transaction tracking the delay module counting.
+    /// @param timestamp The timestamp of the transaction.
+    event AdjustPoolTxExecuted(address indexed target, bytes payload, uint256 nonce, uint256 timestamp);
+
     /// @notice Emitted when the admin sets a new buffer value.
     /// @param admin The address of the contract admin.
     /// @param oldBuffer The value of the old buffer.
@@ -320,7 +327,10 @@ contract RoboSaverVirtualModule {
         address cachedTarget = txQueueData.target;
         uint8 operation =
             cachedTarget == MULTICALL3 ? uint8(DelayModuleOperation.DelegateCall) : uint8(DelayModuleOperation.Call);
+
         delayModule.executeNextTx(cachedTarget, 0, txQueueData.payload, operation);
+
+        emit AdjustPoolTxExecuted(cachedTarget, txQueueData.payload, txQueueData.nonce, block.timestamp);
 
         // sets every field in the struct to its default value
         delete txQueueData;
