@@ -67,7 +67,7 @@ contract TopupBptTest is BaseFixture {
         // two actions:
         // 1. eure exact appproval to `BALANCER_VAULT`
         // 2. join the pool single sided with the excess
-        vm.prank(TOP_UP_AGENT);
+        vm.prank(KEEPER);
         roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0);
 
         // ensure default values at `txQueueData` after execution

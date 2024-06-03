@@ -72,7 +72,7 @@ contract TopupTest is BaseFixture {
 
         _assertPreStorageValuesNextTxExec(address(roboModule.BALANCER_VAULT()), eventPayloadGenerated);
 
-        vm.prank(TOP_UP_AGENT);
+        vm.prank(KEEPER);
         roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0);
 
         // (uint256 nonce, address target, bytes memory execTxPayload) = roboModule.txQueueData();
