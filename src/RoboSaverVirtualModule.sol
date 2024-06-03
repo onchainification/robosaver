@@ -51,14 +51,15 @@ contract RoboSaverVirtualModule {
     address public constant MULTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
     address public immutable CARD;
 
-    IERC20 constant STEUR = IERC20(0x004626A008B1aCdC4c74ab51644093b155e59A23);
-    IERC20 constant EURE = IERC20(0xcB444e90D8198415266c6a2724b7900fb12FC56E);
-
     IVault public constant BALANCER_VAULT = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
-    IComposableStablePool constant BPT_STEUR_EURE = IComposableStablePool(0x06135A9Ae830476d3a941baE9010B63732a055F4);
 
-    bytes32 public immutable BPT_STEUR_EURE_POOL_ID;
+    bytes32 public constant BPT_STEUR_EURE_POOL_ID = 0x06135a9ae830476d3a941bae9010b63732a055f4000000000000000000000065;
     bytes32 constant SET_ALLOWANCE_KEY = keccak256("SPENDING_ALLOWANCE");
+
+    IERC20 immutable STEUR;
+    IERC20 immutable EURE;
+
+    IComposableStablePool immutable BPT_STEUR_EURE;
 
     /*//////////////////////////////////////////////////////////////////////////
                                    PUBLIC STORAGE
@@ -171,11 +172,18 @@ contract RoboSaverVirtualModule {
         slippage = _slippage;
 
         CARD = delayModule.avatar();
-        BPT_STEUR_EURE_POOL_ID = BPT_STEUR_EURE.getPoolId();
 
-        bpt_steur_eure_assets[0] = IAsset(address(STEUR));
-        bpt_steur_eure_assets[1] = IAsset(address(BPT_STEUR_EURE));
-        bpt_steur_eure_assets[2] = IAsset(address(EURE));
+        /// @dev Get all the pool tokens and write them to constants and storage
+        /// @dev This will make it easier to support multiple pools in a future version
+        (IERC20[] memory tokens,,) = BALANCER_VAULT.getPoolTokens(BPT_STEUR_EURE_POOL_ID);
+
+        STEUR = tokens[0];
+        BPT_STEUR_EURE = IComposableStablePool(address(tokens[1]));
+        EURE = tokens[2];
+
+        bpt_steur_eure_assets[0] = IAsset(address(tokens[0]));
+        bpt_steur_eure_assets[1] = IAsset(address(tokens[1]));
+        bpt_steur_eure_assets[2] = IAsset(address(tokens[2]));
     }
 
     /*//////////////////////////////////////////////////////////////////////////
