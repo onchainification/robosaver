@@ -57,10 +57,6 @@ contract RoboSaverVirtualModule {
     IVault public constant BALANCER_VAULT = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
     IComposableStablePool constant BPT_STEUR_EURE = IComposableStablePool(0x06135A9Ae830476d3a941baE9010B63732a055F4);
 
-    /// @dev Technically not a constant since it is an array, but never altered after constructor sets it
-    /// @dev All asset related arrays should always follow this (alphabetical) order
-    IAsset[] BPT_STEUR_EURE_ASSETS = new IAsset[](3);
-
     bytes32 public immutable BPT_STEUR_EURE_POOL_ID;
     bytes32 constant SET_ALLOWANCE_KEY = keccak256("SPENDING_ALLOWANCE");
 
@@ -77,6 +73,13 @@ contract RoboSaverVirtualModule {
 
     /// @dev Keeps track of the transaction queued up by the virtual module and allows internally to call `executeNextTx`
     TxQueueData public txQueueData;
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                  PRIVATE STORAGE
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @dev All asset related arrays should always follow this (alphabetical) order
+    IAsset[] bpt_steur_eure_assets = new IAsset[](3);
 
     /*//////////////////////////////////////////////////////////////////////////
                                        EVENTS
@@ -170,9 +173,9 @@ contract RoboSaverVirtualModule {
         CARD = delayModule.avatar();
         BPT_STEUR_EURE_POOL_ID = BPT_STEUR_EURE.getPoolId();
 
-        BPT_STEUR_EURE_ASSETS[0] = IAsset(address(STEUR));
-        BPT_STEUR_EURE_ASSETS[1] = IAsset(address(BPT_STEUR_EURE));
-        BPT_STEUR_EURE_ASSETS[2] = IAsset(address(EURE));
+        bpt_steur_eure_assets[0] = IAsset(address(STEUR));
+        bpt_steur_eure_assets[1] = IAsset(address(BPT_STEUR_EURE));
+        bpt_steur_eure_assets[2] = IAsset(address(EURE));
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -278,7 +281,7 @@ contract RoboSaverVirtualModule {
             BPT_STEUR_EURE.balanceOf(CARD),
             EURE_TOKEN_BPT_INDEX
         );
-        request_ = IVault.ExitPoolRequest(BPT_STEUR_EURE_ASSETS, minAmountsOut, userData, false);
+        request_ = IVault.ExitPoolRequest(bpt_steur_eure_assets, minAmountsOut, userData, false);
         bytes memory exitPoolPayload =
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
 
@@ -310,7 +313,7 @@ contract RoboSaverVirtualModule {
             abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn);
 
         /// @dev Queue the transaction into the delay module
-        request_ = IVault.ExitPoolRequest(BPT_STEUR_EURE_ASSETS, minAmountsOut, userData, false);
+        request_ = IVault.ExitPoolRequest(bpt_steur_eure_assets, minAmountsOut, userData, false);
         bytes memory exitPoolPayload =
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
         delayModule.execTransactionFromModule(
@@ -345,7 +348,7 @@ contract RoboSaverVirtualModule {
             abi.encode(StablePoolUserData.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, amountsIn, minimumBPT);
 
         IVault.JoinPoolRequest memory request =
-            IVault.JoinPoolRequest(BPT_STEUR_EURE_ASSETS, maxAmountsIn, userData, false);
+            IVault.JoinPoolRequest(bpt_steur_eure_assets, maxAmountsIn, userData, false);
         bytes memory joinPoolPayload =
             abi.encodeWithSelector(IVault.joinPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, CARD, request);
 
