@@ -59,7 +59,7 @@ contract RoboSaverVirtualModule {
 
     /// @dev Technically not a constant since it is an array, but never altered after constructor sets it
     /// @dev All asset related arrays should always follow this (alphabetical) order
-    IAsset[] storage BPT_STEUR_EURE_ASSETS = new IAsset[](3);
+    IAsset[] BPT_STEUR_EURE_ASSETS = new IAsset[](3);
 
     bytes32 public immutable BPT_STEUR_EURE_POOL_ID;
     bytes32 constant SET_ALLOWANCE_KEY = keccak256("SPENDING_ALLOWANCE");
