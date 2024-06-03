@@ -249,7 +249,7 @@ contract RoboSaverVirtualModule {
         if (_action == PoolAction.WITHDRAW) {
             /// @dev Close the pool in case the $EURe available for withdrawal is less than the deficit
             uint256 withdrawableEure =
-                BPT_STEUR_EURE.balanceOf(CARD) * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / MAX_BPS;
+                BPT_STEUR_EURE.balanceOf(CARD) * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
             if (withdrawableEure < _amount) {
                 _poolClose(withdrawableEure);
             } else {
@@ -270,9 +270,8 @@ contract RoboSaverVirtualModule {
     /// @param _minAmountOut The minimum amount of $EURe to withdraw from the pool
     /// @return request_ The exit pool request as per Balancer's interface
     function _poolClose(uint256 _minAmountOut) internal returns (IVault.ExitPoolRequest memory request_) {
-        /// @dev Allow for one wei of slippage
         uint256[] memory minAmountsOut = new uint256[](3);
-        minAmountsOut[EURE_TOKEN_BPT_INDEX] = _minAmountOut - 1;
+        minAmountsOut[EURE_TOKEN_BPT_INDEX] = _minAmountOut;
 
         bytes memory userData = abi.encode(
             StablePoolUserData.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT,
