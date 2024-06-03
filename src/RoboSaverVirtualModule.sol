@@ -46,6 +46,8 @@ contract RoboSaverVirtualModule {
 
     uint16 constant MAX_BPS = 10_000;
 
+    uint256 constant EURE_TOKEN_BPT_INDEX = 2;
+
     address public constant MULTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
     address public immutable CARD;
 
@@ -54,6 +56,10 @@ contract RoboSaverVirtualModule {
 
     IVault public constant BALANCER_VAULT = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
     IComposableStablePool constant BPT_STEUR_EURE = IComposableStablePool(0x06135A9Ae830476d3a941baE9010B63732a055F4);
+
+    /// @dev Technically not a constant since it is an array, but never altered after constructor sets it
+    /// @dev All asset related arrays should always follow this (alphabetical) order
+    IAsset[] storage BPT_STEUR_EURE_ASSETS = new IAsset[](3);
 
     bytes32 public immutable BPT_STEUR_EURE_POOL_ID;
     bytes32 constant SET_ALLOWANCE_KEY = keccak256("SPENDING_ALLOWANCE");
@@ -163,6 +169,10 @@ contract RoboSaverVirtualModule {
 
         CARD = delayModule.avatar();
         BPT_STEUR_EURE_POOL_ID = BPT_STEUR_EURE.getPoolId();
+
+        BPT_STEUR_EURE_ASSETS[0] = IAsset(address(STEUR));
+        BPT_STEUR_EURE_ASSETS[1] = IAsset(address(BPT_STEUR_EURE));
+        BPT_STEUR_EURE_ASSETS[2] = IAsset(address(EURE));
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -260,27 +270,25 @@ contract RoboSaverVirtualModule {
     /// @param _minAmountOut The minimum amount of $EURe to withdraw from the pool
     /// @return request_ The exit pool request as per Balancer's interface
     function _poolClose(uint256 _minAmountOut) internal returns (IVault.ExitPoolRequest memory request_) {
-        /// @dev All asset related arrays should always follow this (alphabetical) order
-        IAsset[] memory assets = new IAsset[](3);
-        assets[0] = IAsset(address(STEUR));
-        assets[1] = IAsset(address(BPT_STEUR_EURE));
-        assets[2] = IAsset(address(EURE));
-
         /// @dev Allow for one wei of slippage
         uint256[] memory minAmountsOut = new uint256[](3);
-        minAmountsOut[2] = _minAmountOut - 1;
+        minAmountsOut[EURE_TOKEN_BPT_INDEX] = _minAmountOut - 1;
 
-        /// @dev The `exitTokenIndex` for $EURe is 2
-        bytes memory userData =
-            abi.encode(StablePoolUserData.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, BPT_STEUR_EURE.balanceOf(CARD), 2);
-        request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
+        bytes memory userData = abi.encode(
+            StablePoolUserData.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT,
+            BPT_STEUR_EURE.balanceOf(CARD),
+            EURE_TOKEN_BPT_INDEX
+        );
+        request_ = IVault.ExitPoolRequest(BPT_STEUR_EURE_ASSETS, minAmountsOut, userData, false);
         bytes memory exitPoolPayload =
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
 
         /// @dev Queue the transaction into the delay module
-        delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, exitPoolPayload, 0);
+        delayModule.execTransactionFromModule(
+            address(BALANCER_VAULT), 0, exitPoolPayload, IDelayModifier.DelayModuleOperation.Call
+        );
 
-        emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_));
+        emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_), delayModule.queueNonce());
         emit PoolWithdrawalQueued(CARD, _minAmountOut, block.timestamp);
     }
 
@@ -288,39 +296,30 @@ contract RoboSaverVirtualModule {
     /// @param _deficit The amount of $EURe to withdraw from the pool
     /// @return request_ The exit pool request as per Balancer's interface
     function _poolWithdrawal(uint256 _deficit) internal returns (IVault.ExitPoolRequest memory request_) {
-        /// @dev All asset related arrays should always follow this (alphabetical) order
-        IAsset[] memory assets = new IAsset[](3);
-        assets[0] = IAsset(address(STEUR));
-        assets[1] = IAsset(address(BPT_STEUR_EURE));
-        assets[2] = IAsset(address(EURE));
-
         /// @dev Allow for one wei of slippage
         uint256[] memory minAmountsOut = new uint256[](3);
-        minAmountsOut[2] = _deficit - 1;
+        minAmountsOut[EURE_TOKEN_BPT_INDEX] = _deficit - 1;
 
         /// @dev For some reason the `amountsOut` array does NOT include the bpt token itself
         uint256[] memory amountsOut = new uint256[](2);
         amountsOut[1] = _deficit;
 
         /// @dev Naive calculation of the `maxBPTAmountIn` based on the bpt rate and slippage %
-        uint256 maxBPTAmountIn = minAmountsOut[2] * MAX_BPS * 1e18 / (MAX_BPS - slippage) / BPT_STEUR_EURE.getRate();
-
-        bytes memory userData =
-            abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn);
-        request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
-        bytes memory exitPoolPayload =
-            abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
+        uint256 maxBPTAmountIn =
+            minAmountsOut[EURE_TOKEN_BPT_INDEX] * MAX_BPS * 1e18 / (MAX_BPS - slippage) / BPT_STEUR_EURE.getRate();
 
         /// @dev Queue the transaction into the delay module
-        request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
-        bytes memory payload =
-            abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
+        bytes memory userData =
+            abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn);
+        request_ = IVault.ExitPoolRequest(BPT_STEUR_EURE_ASSETS, minAmountsOut, userData, false);
+        bytes memory exitPoolPayload =
+            abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
         delayModule.execTransactionFromModule(
-            address(BALANCER_VAULT), 0, payload, IDelayModifier.DelayModuleOperation.Call
+            address(BALANCER_VAULT), 0, exitPoolPayload, IDelayModifier.DelayModuleOperation.Call
         );
 
         uint256 cachedQueueNonce = delayModule.queueNonce();
-        txQueueData = TxQueueData(cachedQueueNonce, address(BALANCER_VAULT), payload);
+        txQueueData = TxQueueData(cachedQueueNonce, address(BALANCER_VAULT), exitPoolPayload);
 
         emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_), cachedQueueNonce);
         emit PoolWithdrawalQueued(CARD, _deficit, block.timestamp);
@@ -335,13 +334,8 @@ contract RoboSaverVirtualModule {
             abi.encodeWithSignature("approve(address,uint256)", address(BALANCER_VAULT), _surplus);
 
         /// @dev Prepare the join pool request
-        IAsset[] memory assets = new IAsset[](3);
-        assets[0] = IAsset(address(STEUR));
-        assets[1] = IAsset(address(BPT_STEUR_EURE));
-        assets[2] = IAsset(address(EURE));
-
         uint256[] memory maxAmountsIn = new uint256[](3);
-        maxAmountsIn[2] = _surplus;
+        maxAmountsIn[EURE_TOKEN_BPT_INDEX] = _surplus;
 
         uint256[] memory amountsIn = new uint256[](2);
         amountsIn[1] = _surplus;
@@ -351,7 +345,8 @@ contract RoboSaverVirtualModule {
 
         bytes memory userData =
             abi.encode(StablePoolUserData.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, amountsIn, minimumBPT);
-        IVault.JoinPoolRequest memory request = IVault.JoinPoolRequest(assets, maxAmountsIn, userData, false);
+        IVault.JoinPoolRequest memory request =
+            IVault.JoinPoolRequest(BPT_STEUR_EURE_ASSETS, maxAmountsIn, userData, false);
         bytes memory joinPoolPayload =
             abi.encodeWithSelector(IVault.joinPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, CARD, request);
 
@@ -361,7 +356,7 @@ contract RoboSaverVirtualModule {
         calls_[1] = IMulticall.Call(address(BALANCER_VAULT), joinPoolPayload);
         bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
 
-        /// @dev Queue the transaction into the delay module
+        /// @dev Queue the transactions into the delay module
         delayModule.execTransactionFromModule(
             MULTICALL3, 0, multicallPayload, IDelayModifier.DelayModuleOperation.DelegateCall
         );
