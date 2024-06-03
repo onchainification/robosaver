@@ -19,8 +19,8 @@ contract GnosisPayInfraDeployment is Script {
     // safe target
     address constant GNOSIS_SAFE = 0xa4A4a4879dCD3289312884e9eC74Ed37f9a92a55;
 
-    // gelato agent
-    address constant TRADER_AGENT = 0x416c4E9accc71D0e973d7c16Cf67A48981d9d18b;
+    // keeper address
+    address constant KEEPER = 0x416c4E9accc71D0e973d7c16Cf67A48981d9d18b;
 
     // eure config: min for testing purposes
     uint128 constant MIN_EURE_ALLOWANCE = 10e18;
@@ -62,7 +62,7 @@ contract GnosisPayInfraDeployment is Script {
         bouncerContract = new Bouncer(GNOSIS_SAFE, address(rolesModule), SET_ALLOWANCE_SELECTOR);
 
         // 4. {RoboSaverVirtualModule}
-        roboModule = new RoboSaverVirtualModule(address(delayModule), address(rolesModule), TRADER_AGENT, 50e18);
+        roboModule = new RoboSaverVirtualModule(address(delayModule), address(rolesModule), KEEPER, 50e18, 200);
 
         // 5. {Allowance config}
         rolesModule.setAllowance(

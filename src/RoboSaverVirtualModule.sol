@@ -3,6 +3,8 @@ pragma solidity ^0.8.25;
 
 import {IMulticall} from "@gnosispay-kit/interfaces/IMulticall.sol";
 import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
+
+import {IComposableStablePool} from "./interfaces/IComposableStablePool.sol";
 import {IDelayModifier} from "./interfaces/delayModule/IDelayModifier.sol";
 
 import {IAsset} from "@balancer-v2/interfaces/contracts/vault/IAsset.sol";
@@ -42,20 +44,22 @@ contract RoboSaverVirtualModule {
                                    CONSTANTS
     //////////////////////////////////////////////////////////////////////////*/
 
-    uint256 constant SLIPP = 9_800;
-    uint256 constant MAX_BPS = 10_000;
+    uint16 constant MAX_BPS = 10_000;
+
+    uint256 constant EURE_TOKEN_BPT_INDEX = 2;
 
     address public constant MULTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
     address public immutable CARD;
-
-    IERC20 constant STEUR = IERC20(0x004626A008B1aCdC4c74ab51644093b155e59A23);
-    IERC20 constant EURE = IERC20(0xcB444e90D8198415266c6a2724b7900fb12FC56E);
-    IERC20 constant BPT_STEUR_EURE = IERC20(0x06135A9Ae830476d3a941baE9010B63732a055F4);
 
     IVault public constant BALANCER_VAULT = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
     bytes32 public constant BPT_STEUR_EURE_POOL_ID = 0x06135a9ae830476d3a941bae9010b63732a055f4000000000000000000000065;
     bytes32 constant SET_ALLOWANCE_KEY = keccak256("SPENDING_ALLOWANCE");
+
+    IERC20 immutable STEUR;
+    IERC20 immutable EURE;
+
+    IComposableStablePool immutable BPT_STEUR_EURE;
 
     /*//////////////////////////////////////////////////////////////////////////
                                    PUBLIC STORAGE
@@ -66,51 +70,65 @@ contract RoboSaverVirtualModule {
 
     address public keeper;
     uint256 public buffer;
+    uint16 public slippage;
 
     /// @dev Keeps track of the transaction queued up by the virtual module and allows internally to call `executeNextTx`
     TxQueueData public txQueueData;
 
     /*//////////////////////////////////////////////////////////////////////////
+                                  PRIVATE STORAGE
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @dev All asset related arrays should always follow this (alphabetical) order
+    IAsset[] bpt_steur_eure_assets = new IAsset[](3);
+
+    /*//////////////////////////////////////////////////////////////////////////
                                        EVENTS
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @notice Emitted when a withdrawal pool transaction is being queued up.
-    /// @param safe The address of the card.
+    /// @notice Emitted when a withdrawal pool transaction is being queued up
+    /// @param safe The address of the card
     /// @param amount The amount of $EURe to withdraw from the pool
-    /// @param timestamp The timestamp of the transaction.
+    /// @param timestamp The timestamp of the transaction
     event PoolWithdrawalQueued(address indexed safe, uint256 amount, uint256 timestamp);
 
-    /// @notice Emitted when a deposit pool transaction is being queued up.
-    /// @param safe The address of the card.
+    /// @notice Emitted when a deposit pool transaction is being queued up
+    /// @param safe The address of the card
     /// @param amount The amount of $EURe to deposit into the pool
-    /// @param timestamp The timestamp of the transaction.
+    /// @param timestamp The timestamp of the transaction
     event PoolDepositQueued(address indexed safe, uint256 amount, uint256 timestamp);
 
-    /// @notice Emitted when an adjustment pool transaction is being queued up.
-    /// @dev Event is leverage by off-chain service to execute the queued transaction.
-    /// @param target The address of the target contract.
-    /// @param payload The payload of the transaction to be executed on the target contract.
-    /// @param queueNonce The nonce of the queued transaction.
+    /// @notice Emitted when an adjustment pool transaction is being queued up
+    /// @dev Event is leverage by off-chain service to execute the queued transaction
+    /// @param target The address of the target contract
+    /// @param payload The payload of the transaction to be executed on the target contract
+    /// @param queueNonce The nonce of the queued transaction
     event AdjustPoolTxDataQueued(address indexed target, bytes payload, uint256 queueNonce);
 
-    /// @notice Emitted when an adjustment pool transaction is executed in the delay module.
-    /// @param target The address of the target contract.
-    /// @param payload The payload of the transaction executed on the target contract.
-    /// @param nonce The nonce of the executed transaction tracking the delay module counting.
-    /// @param timestamp The timestamp of the transaction.
+    /// @notice Emitted when an adjustment pool transaction is executed in the delay module
+    /// @param target The address of the target contract
+    /// @param payload The payload of the transaction executed on the target contract
+    /// @param nonce The nonce of the executed transaction tracking the delay module counting
+    /// @param timestamp The timestamp of the transaction
     event AdjustPoolTxExecuted(address indexed target, bytes payload, uint256 nonce, uint256 timestamp);
 
-    /// @notice Emitted when the admin sets a new buffer value.
-    /// @param admin The address of the contract admin.
-    /// @param oldBuffer The value of the old buffer.
-    /// @param newBuffer The value of the new buffer.
+    /// @notice Emitted when the admin sets a new keeper address
+    /// @param admin The address of the admin
+    /// @param oldKeeper The address of the old keeper
+    /// @param newKeeper The address of the new keeper
+    event SetKeeper(address indexed admin, address oldKeeper, address newKeeper);
+
+    /// @notice Emitted when the admin sets a new buffer value
+    /// @param admin The address of the contract admin
+    /// @param oldBuffer The value of the old buffer
+    /// @param newBuffer The value of the new buffer
     event SetBuffer(address indexed admin, uint256 oldBuffer, uint256 newBuffer);
 
-    /// @notice Emitted when the admin sets a new keeper address.
-    /// @param admin The address of the contract admin.
-    /// @param oldKeeper The address of the old keeper.
-    /// @param newKeeper The address of the new keeper.
-    event SetKeeper(address indexed admin, address oldKeeper, address newKeeper);
+    /// @notice Emitted when the admin sets a new slippage value
+    /// @param admin The address of the admin
+    /// @param oldSlippage The value of the old slippage
+    /// @param newSlippage The value of the new slippage
+    event SetSlippage(address indexed admin, uint256 oldSlippage, uint256 newSlippage);
 
     /*//////////////////////////////////////////////////////////////////////////
                                        ERRORS
@@ -121,6 +139,8 @@ contract RoboSaverVirtualModule {
 
     error ZeroAddressValue();
     error ZeroUintValue();
+
+    error TooHighBps();
 
     error ExternalTxIsQueued();
 
@@ -144,18 +164,42 @@ contract RoboSaverVirtualModule {
                                      CONSTRUCTOR
     //////////////////////////////////////////////////////////////////////////*/
 
-    constructor(address _delayModule, address _rolesModule, address _keeper, uint256 _buffer) {
+    constructor(address _delayModule, address _rolesModule, address _keeper, uint256 _buffer, uint16 _slippage) {
         delayModule = IDelayModifier(_delayModule);
         rolesModule = IRolesModifier(_rolesModule);
         keeper = _keeper;
         buffer = _buffer;
+        slippage = _slippage;
 
         CARD = delayModule.avatar();
+
+        /// @dev Get all the pool tokens and write them to constants and storage
+        /// @dev This will make it easier to support multiple pools in a future version
+        (IERC20[] memory tokens,,) = BALANCER_VAULT.getPoolTokens(BPT_STEUR_EURE_POOL_ID);
+
+        STEUR = tokens[0];
+        BPT_STEUR_EURE = IComposableStablePool(address(tokens[1]));
+        EURE = tokens[2];
+
+        bpt_steur_eure_assets[0] = IAsset(address(tokens[0]));
+        bpt_steur_eure_assets[1] = IAsset(address(tokens[1]));
+        bpt_steur_eure_assets[2] = IAsset(address(tokens[2]));
     }
 
     /*//////////////////////////////////////////////////////////////////////////
                                   EXTERNAL METHODS
     //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Assigns a new keeper address
+    /// @param _keeper The address of the new keeper
+    function setKeeper(address _keeper) external onlyAdmin {
+        if (_keeper == address(0)) revert ZeroAddressValue();
+
+        address oldKeeper = keeper;
+        keeper = _keeper;
+
+        emit SetKeeper(msg.sender, oldKeeper, keeper);
+    }
 
     /// @notice Assigns a new value for the buffer responsible for deciding when there is a surplus
     /// @param _buffer The value of the new buffer
@@ -168,15 +212,15 @@ contract RoboSaverVirtualModule {
         emit SetBuffer(msg.sender, oldBuffer, buffer);
     }
 
-    /// @notice Assigns a new keeper address
-    /// @param _keeper The address of the new keeper
-    function setKeeper(address _keeper) external onlyAdmin {
-        if (_keeper == address(0)) revert ZeroAddressValue();
+    /// @notice Adjust the maximum slippage the user is comfortable with
+    /// @param _slippage The value of the new slippage in bps (so 10_000 is 100%)
+    function setSlippage(uint16 _slippage) external onlyAdmin {
+        if (_slippage >= MAX_BPS) revert TooHighBps();
 
-        address oldKeeper = keeper;
-        keeper = _keeper;
+        uint16 oldSlippage = slippage;
+        slippage = _slippage;
 
-        emit SetKeeper(msg.sender, oldKeeper, keeper);
+        emit SetSlippage(msg.sender, oldSlippage, slippage);
     }
 
     /// @notice Check if there is a surplus or deficit of $EURe on the card
@@ -214,9 +258,16 @@ contract RoboSaverVirtualModule {
         if (_isExternalTxQueued()) revert ExternalTxIsQueued();
 
         if (_action == PoolAction.WITHDRAW) {
-            _poolWithdrawal(CARD, _amount);
+            /// @dev Close the pool in case the $EURe available for withdrawal is less than the deficit
+            uint256 withdrawableEure =
+                BPT_STEUR_EURE.balanceOf(CARD) * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
+            if (withdrawableEure < _amount) {
+                _poolClose(withdrawableEure);
+            } else {
+                _poolWithdrawal(_amount);
+            }
         } else if (_action == PoolAction.DEPOSIT) {
-            _poolDeposit(CARD, _amount);
+            _poolDeposit(_amount);
         } else if (_action == PoolAction.EXEC_QUEUE_POOL_ACTION) {
             _executeNextTx();
         }
@@ -226,85 +277,95 @@ contract RoboSaverVirtualModule {
                                    INTERNAL METHODS
     //////////////////////////////////////////////////////////////////////////*/
 
+    /// @notice Close the pool position by withdrawing all to $EURe
+    /// @param _minAmountOut The minimum amount of $EURe to withdraw from the pool
+    /// @return request_ The exit pool request as per Balancer's interface
+    function _poolClose(uint256 _minAmountOut) internal returns (IVault.ExitPoolRequest memory request_) {
+        uint256[] memory minAmountsOut = new uint256[](3);
+        minAmountsOut[EURE_TOKEN_BPT_INDEX] = _minAmountOut;
+
+        bytes memory userData = abi.encode(
+            StablePoolUserData.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT,
+            BPT_STEUR_EURE.balanceOf(CARD),
+            EURE_TOKEN_BPT_INDEX
+        );
+        request_ = IVault.ExitPoolRequest(bpt_steur_eure_assets, minAmountsOut, userData, false);
+        bytes memory exitPoolPayload =
+            abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
+
+        /// @dev Queue the transaction into the delay module
+        delayModule.execTransactionFromModule(
+            address(BALANCER_VAULT), 0, exitPoolPayload, IDelayModifier.DelayModuleOperation.Call
+        );
+
+        emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_), delayModule.queueNonce());
+        emit PoolWithdrawalQueued(CARD, _minAmountOut, block.timestamp);
+    }
+
     /// @notice Withdraw $EURe from the pool
-    /// @param _card The address of the card to withdraw to
     /// @param _deficit The amount of $EURe to withdraw from the pool
     /// @return request_ The exit pool request as per Balancer's interface
-    function _poolWithdrawal(address _card, uint256 _deficit)
-        internal
-        returns (IVault.ExitPoolRequest memory request_)
-    {
-        /// @dev All asset related arrays should always follow this (alphabetical) order
-        IAsset[] memory assets = new IAsset[](3);
-        assets[0] = IAsset(address(STEUR));
-        assets[1] = IAsset(address(BPT_STEUR_EURE));
-        assets[2] = IAsset(address(EURE));
-
-        /// @dev Allow for one wei of slippage
+    function _poolWithdrawal(uint256 _deficit) internal returns (IVault.ExitPoolRequest memory request_) {
         uint256[] memory minAmountsOut = new uint256[](3);
-        minAmountsOut[2] = _deficit - 1;
+        minAmountsOut[EURE_TOKEN_BPT_INDEX] = _deficit;
 
         /// @dev For some reason the `amountsOut` array does NOT include the bpt token itself
         uint256[] memory amountsOut = new uint256[](2);
         amountsOut[1] = _deficit;
 
-        // @todo do we need more math to calculate the exact amount of bpt to withdraw?
-        // @todo if not, explain why not in a @dev comment here
+        /// @dev Naive calculation of the `maxBPTAmountIn` based on the bpt rate and slippage %
+        uint256 maxBPTAmountIn =
+            minAmountsOut[EURE_TOKEN_BPT_INDEX] * MAX_BPS * 1e18 / (MAX_BPS - slippage) / BPT_STEUR_EURE.getRate();
         bytes memory userData =
-            abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, type(uint256).max);
+            abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn);
 
         /// @dev Queue the transaction into the delay module
-        request_ = IVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
-        bytes memory payload =
-            abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, _card, payable(_card), request_);
+        request_ = IVault.ExitPoolRequest(bpt_steur_eure_assets, minAmountsOut, userData, false);
+        bytes memory exitPoolPayload =
+            abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
         delayModule.execTransactionFromModule(
-            address(BALANCER_VAULT), 0, payload, IDelayModifier.DelayModuleOperation.Call
+            address(BALANCER_VAULT), 0, exitPoolPayload, IDelayModifier.DelayModuleOperation.Call
         );
 
         uint256 cachedQueueNonce = delayModule.queueNonce();
-        txQueueData = TxQueueData(cachedQueueNonce, address(BALANCER_VAULT), payload);
+        txQueueData = TxQueueData(cachedQueueNonce, address(BALANCER_VAULT), exitPoolPayload);
 
         emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_), cachedQueueNonce);
-        emit PoolWithdrawalQueued(_card, _deficit, block.timestamp);
+        emit PoolWithdrawalQueued(CARD, _deficit, block.timestamp);
     }
 
     /// @notice Deposit $EURe into the pool
-    /// @param _card The address of the card to deposit from
     /// @param _surplus The amount of $EURe to deposit into the pool
     /// @return calls_ The calls needed approve $EURe and join the pool
-    function _poolDeposit(address _card, uint256 _surplus) internal returns (IMulticall.Call[] memory) {
-        /// @dev Approve our $EURe to the Balancer Vault
+    function _poolDeposit(uint256 _surplus) internal returns (IMulticall.Call[] memory) {
+        /// @dev Build the payload to approve our $EURe to the Balancer Vault
         bytes memory approvalPayload =
             abi.encodeWithSignature("approve(address,uint256)", address(BALANCER_VAULT), _surplus);
 
-        /// @dev Prepare the join pool request
-        IAsset[] memory assets = new IAsset[](3);
-        assets[0] = IAsset(address(STEUR));
-        assets[1] = IAsset(address(BPT_STEUR_EURE));
-        assets[2] = IAsset(address(EURE));
-
+        /// @dev Build the payload to join the pool
         uint256[] memory maxAmountsIn = new uint256[](3);
-        maxAmountsIn[2] = _surplus;
+        maxAmountsIn[EURE_TOKEN_BPT_INDEX] = _surplus;
 
-        // @todo is there an assumption here that 1 bpt = 1 eure? is that always correct?
         uint256[] memory amountsIn = new uint256[](2);
         amountsIn[1] = _surplus;
-        uint256 minimumBPT = (_surplus * SLIPP) / MAX_BPS;
+
+        /// @dev Naive calculation of the `minimumBPT` to receive based on the bpt rate and slippage %
+        uint256 minimumBPT = _surplus * (MAX_BPS - slippage) * 1e18 / MAX_BPS / BPT_STEUR_EURE.getRate();
         bytes memory userData =
             abi.encode(StablePoolUserData.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, amountsIn, minimumBPT);
 
-        IVault.JoinPoolRequest memory request = IVault.JoinPoolRequest(assets, maxAmountsIn, userData, false);
-
+        IVault.JoinPoolRequest memory request =
+            IVault.JoinPoolRequest(bpt_steur_eure_assets, maxAmountsIn, userData, false);
         bytes memory joinPoolPayload =
-            abi.encodeWithSelector(IVault.joinPool.selector, BPT_STEUR_EURE_POOL_ID, _card, _card, request);
+            abi.encodeWithSelector(IVault.joinPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, CARD, request);
 
-        /// @dev Batch approval and pool join into a multicall
+        /// @dev Batch approval and pool join payloads into a multicall
         IMulticall.Call[] memory calls_ = new IMulticall.Call[](2);
         calls_[0] = IMulticall.Call(address(EURE), approvalPayload);
         calls_[1] = IMulticall.Call(address(BALANCER_VAULT), joinPoolPayload);
         bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
 
-        /// @dev Queue the transaction into the delay module
+        /// @dev Queue the batched transactions into the delay module
         delayModule.execTransactionFromModule(
             MULTICALL3, 0, multicallPayload, IDelayModifier.DelayModuleOperation.DelegateCall
         );
@@ -313,7 +374,7 @@ contract RoboSaverVirtualModule {
         txQueueData = TxQueueData(cachedQueueNonce, MULTICALL3, multicallPayload);
 
         emit AdjustPoolTxDataQueued(MULTICALL3, abi.encode(calls_), cachedQueueNonce);
-        emit PoolDepositQueued(_card, _surplus, block.timestamp);
+        emit PoolDepositQueued(CARD, _surplus, block.timestamp);
 
         return calls_;
     }
