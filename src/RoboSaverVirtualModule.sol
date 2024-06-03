@@ -328,11 +328,11 @@ contract RoboSaverVirtualModule {
     /// @param _surplus The amount of $EURe to deposit into the pool
     /// @return calls_ The calls needed approve $EURe and join the pool
     function _poolDeposit(uint256 _surplus) internal returns (IMulticall.Call[] memory) {
-        /// @dev Approve our $EURe to the Balancer Vault
+        /// @dev Build the payload to approve our $EURe to the Balancer Vault
         bytes memory approvalPayload =
             abi.encodeWithSignature("approve(address,uint256)", address(BALANCER_VAULT), _surplus);
 
-        /// @dev Prepare the join pool request
+        /// @dev Build the payload to join the pool
         uint256[] memory maxAmountsIn = new uint256[](3);
         maxAmountsIn[EURE_TOKEN_BPT_INDEX] = _surplus;
 
@@ -341,21 +341,21 @@ contract RoboSaverVirtualModule {
 
         /// @dev Naive calculation of the `minimumBPT` to receive based on the bpt rate and slippage %
         uint256 minimumBPT = _surplus * (MAX_BPS - slippage) * 1e18 / MAX_BPS / BPT_STEUR_EURE.getRate();
-
         bytes memory userData =
             abi.encode(StablePoolUserData.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, amountsIn, minimumBPT);
+
         IVault.JoinPoolRequest memory request =
             IVault.JoinPoolRequest(BPT_STEUR_EURE_ASSETS, maxAmountsIn, userData, false);
         bytes memory joinPoolPayload =
             abi.encodeWithSelector(IVault.joinPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, CARD, request);
 
-        /// @dev Batch approval and pool join into a multicall
+        /// @dev Batch approval and pool join payloads into a multicall
         IMulticall.Call[] memory calls_ = new IMulticall.Call[](2);
         calls_[0] = IMulticall.Call(address(EURE), approvalPayload);
         calls_[1] = IMulticall.Call(address(BALANCER_VAULT), joinPoolPayload);
         bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
 
-        /// @dev Queue the transactions into the delay module
+        /// @dev Queue the batched transactions into the delay module
         delayModule.execTransactionFromModule(
             MULTICALL3, 0, multicallPayload, IDelayModifier.DelayModuleOperation.DelegateCall
         );
