@@ -306,10 +306,10 @@ contract RoboSaverVirtualModule {
         /// @dev Naive calculation of the `maxBPTAmountIn` based on the bpt rate and slippage %
         uint256 maxBPTAmountIn =
             minAmountsOut[EURE_TOKEN_BPT_INDEX] * MAX_BPS * 1e18 / (MAX_BPS - slippage) / BPT_STEUR_EURE.getRate();
-
-        /// @dev Queue the transaction into the delay module
         bytes memory userData =
             abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn);
+
+        /// @dev Queue the transaction into the delay module
         request_ = IVault.ExitPoolRequest(BPT_STEUR_EURE_ASSETS, minAmountsOut, userData, false);
         bytes memory exitPoolPayload =
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
