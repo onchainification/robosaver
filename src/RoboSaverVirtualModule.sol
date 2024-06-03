@@ -72,6 +72,9 @@ contract RoboSaverVirtualModule {
     /// @dev Keeps track of the transaction queued up by the virtual module and allows internally to call `executeNextTx`
     TxQueueData public txQueueData;
 
+    /// @dev Keeps track of the transaction queued up by the virtual module and allows internally to call `executeNextTx`
+    TxQueueData public txQueueData;
+
     /*//////////////////////////////////////////////////////////////////////////
                                        EVENTS
     //////////////////////////////////////////////////////////////////////////*/
