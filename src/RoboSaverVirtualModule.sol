@@ -298,9 +298,8 @@ contract RoboSaverVirtualModule {
     /// @param _deficit The amount of $EURe to withdraw from the pool
     /// @return request_ The exit pool request as per Balancer's interface
     function _poolWithdrawal(uint256 _deficit) internal returns (IVault.ExitPoolRequest memory request_) {
-        /// @dev Allow for one wei of slippage
         uint256[] memory minAmountsOut = new uint256[](3);
-        minAmountsOut[EURE_TOKEN_BPT_INDEX] = _deficit - 1;
+        minAmountsOut[EURE_TOKEN_BPT_INDEX] = _deficit;
 
         /// @dev For some reason the `amountsOut` array does NOT include the bpt token itself
         uint256[] memory amountsOut = new uint256[](2);
