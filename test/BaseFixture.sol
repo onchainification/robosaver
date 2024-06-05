@@ -23,7 +23,7 @@ contract BaseFixture is Test {
                                    CONSTANTS
     //////////////////////////////////////////////////////////////////////////*/
 
-    uint256 constant DIFF_MIN_OUT_CALC_ALLOWED = 90000000000000; // 0.00009 ether units
+    uint256 constant DIFF_MIN_OUT_CALC_ALLOWED = 70000000000000; // 0.00007 ether units
 
     address constant KEEPER = address(747834834);
 
@@ -161,6 +161,10 @@ contract BaseFixture is Test {
         delayModule.execTransactionFromModule(EURE, 0, payloadErc20Transfer, Enum.Operation.Call);
     }
 
+    /*//////////////////////////////////////////////////////////////////////////
+        INTERNAL METHODS: HELPERS FOR ASSERTING `txQueueData` STORAGE VALUES
+    //////////////////////////////////////////////////////////////////////////*/
+
     function _assertPreStorageValuesNextTxExec(address _expectedTarget, bytes memory _eventPayloadGenerated)
         internal
         view
@@ -178,6 +182,21 @@ contract BaseFixture is Test {
         assertEq(target, address(0));
         assertEq(payload, emptyBytes);
     }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                INTERNAL METHODS: HELPERS FOR `checker` ASSERTS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    function _assertCheckerFalseNoDeficitNorSurplus() internal view {
+        (bool canExec, bytes memory execPayload) = roboModule.checker();
+
+        assertFalse(canExec);
+        assertEq(execPayload, bytes("Neither deficit nor surplus; no action needed"));
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                    INTERNAL METHODS: BALANCER QUERY HELPERS
+    //////////////////////////////////////////////////////////////////////////*/
 
     function _getBptOutExpected(uint256 _amount) internal returns (uint256 bptOutExpected_) {
         uint256[] memory maxAmountsIn = new uint256[](3);
@@ -204,5 +223,32 @@ contract BaseFixture is Test {
 
         // naive: sanity check
         assertGt(bptOutExpected_, 0);
+    }
+
+    function _getMaxBptInExpected(uint256 _amount, uint256 _bptBalance) internal returns (uint256 bptInExpected_) {
+        uint256[] memory minAmountsOut = new uint256[](3);
+        minAmountsOut[roboModule.EURE_TOKEN_BPT_INDEX()] = _amount;
+
+        uint256[] memory amountsOut = new uint256[](2);
+        amountsOut[1] = _amount;
+
+        IAsset[] memory assets = new IAsset[](3);
+        for (uint256 i; i < assets.length; i++) {
+            assets[i] = roboModule.poolAssets(i);
+        }
+
+        IVault.ExitPoolRequest memory request = IVault.ExitPoolRequest(
+            assets,
+            minAmountsOut,
+            abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, _bptBalance),
+            false
+        );
+
+        (bptInExpected_,) = BALANCER_QUERIES.queryExit(
+            roboModule.BPT_STEUR_EURE_POOL_ID(), roboModule.CARD(), roboModule.CARD(), request
+        );
+
+        // naive: sanity check
+        assertGt(bptInExpected_, 0);
     }
 }

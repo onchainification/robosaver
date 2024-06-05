@@ -14,12 +14,7 @@ import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
 contract TopupTest is BaseFixture {
     // @note ref for error codes: https://docs.balancer.fi/reference/contracts/error-codes.html#error-codes
     function testExitPool() public {
-        uint256 initialBptBal = IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE);
-
-        (bool canExec, bytes memory execPayload) = roboModule.checker();
-
-        assertFalse(canExec);
-        assertEq(execPayload, bytes("Neither deficit nor surplus; no action needed"));
+        _assertCheckerFalseNoDeficitNorSurplus();
 
         uint256 tokenAmountTargetToMove = _transferOutBelowThreshold();
 
@@ -29,7 +24,11 @@ contract TopupTest is BaseFixture {
 
         delayModule.executeNextTx(EURE, 0, payload, Enum.Operation.Call);
 
-        (canExec, execPayload) = roboModule.checker();
+        // check balance after mirroring a EURE transaction out from the CARD as "initial balances"
+        uint256 initialBptBal = IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE);
+        uint256 initialEureBal = IERC20(EURE).balanceOf(GNOSIS_SAFE);
+
+        (bool canExec, bytes memory execPayload) = roboModule.checker();
         (bytes memory dataWithoutSelector, bytes4 selector) = _extractEncodeDataWithoutSelector(execPayload);
         (RoboSaverVirtualModule.PoolAction _action, uint256 _deficit) =
             abi.decode(dataWithoutSelector, (RoboSaverVirtualModule.PoolAction, uint256));
@@ -40,7 +39,8 @@ contract TopupTest is BaseFixture {
             uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.WITHDRAW), "PoolAction: not withdrawal from pool"
         );
 
-        uint256 initialEureBal = IERC20(EURE).balanceOf(GNOSIS_SAFE);
+        // calc via Balancer Queries the max BPT amount to withdraw
+        uint256 maxBPTAmountIn = _getMaxBptInExpected(_deficit, initialBptBal);
 
         // listen for `AdjustPoolTxDataQueued` event to capture the payload
         vm.recordLogs();
@@ -66,26 +66,30 @@ contract TopupTest is BaseFixture {
         IVault.ExitPoolRequest memory request =
             abi.decode(abi.decode(entries[1].data, (bytes)), (IVault.ExitPoolRequest));
 
-        bytes memory eventPayloadGenerated = abi.encodeWithSelector(
-            IVault.exitPool.selector, roboModule.BPT_STEUR_EURE_POOL_ID(), GNOSIS_SAFE, payable(GNOSIS_SAFE), request
+        _assertPreStorageValuesNextTxExec(
+            address(roboModule.BALANCER_VAULT()),
+            abi.encodeWithSelector(
+                IVault.exitPool.selector,
+                roboModule.BPT_STEUR_EURE_POOL_ID(),
+                GNOSIS_SAFE,
+                payable(GNOSIS_SAFE),
+                request
+            )
         );
-
-        _assertPreStorageValuesNextTxExec(address(roboModule.BALANCER_VAULT()), eventPayloadGenerated);
 
         vm.prank(KEEPER);
         roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0);
 
-        // (uint256 nonce, address target, bytes memory execTxPayload) = roboModule.txQueueData();
-        // delayModule.executeNextTx(address(roboModule.BALANCER_VAULT()), 0, execTxPayload, Enum.Operation.Call);
-
         // ensure default values at `txQueueData` after execution
         _assertPostDefaultValuesNextTxExec();
 
-        assertLt(
+        assertApproxEqAbs(
             IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE),
-            initialBptBal,
+            initialBptBal - maxBPTAmountIn,
+            DIFF_MIN_OUT_CALC_ALLOWED,
             "BPT balance: not decreased after withdrawing from the pool"
         );
+
         assertEq(
             IERC20(EURE).balanceOf(GNOSIS_SAFE),
             initialEureBal + _deficit,
