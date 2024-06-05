@@ -36,6 +36,8 @@ contract TopupBptTest is BaseFixture {
             uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.DEPOSIT), "PoolAction: not depositing into the pool"
         );
 
+        uint256 bptOutExpected = _getBptOutExpected(_amount);
+
         // listen for `AdjustPoolTxDataQueued` event to capture the payload
         vm.recordLogs();
 
@@ -73,14 +75,15 @@ contract TopupBptTest is BaseFixture {
         // ensure default values at `txQueueData` after execution
         _assertPostDefaultValuesNextTxExec();
 
-        assertLt(
+        assertLe(
             IERC20(EURE).balanceOf(GNOSIS_SAFE),
-            initialEureBal,
+            initialEureBal - _amount,
             "EURE balance: did not decrease after depositing into the pool"
         );
-        assertGt(
+        assertApproxEqAbs(
             IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE),
-            initialBptBal,
+            initialBptBal + bptOutExpected,
+            DIFF_MIN_OUT_CALC_ALLOWED,
             "BPT balance: did not increase after depositing into the pool"
         );
     }

@@ -46,7 +46,7 @@ contract RoboSaverVirtualModule {
 
     uint16 constant MAX_BPS = 10_000;
 
-    uint256 constant EURE_TOKEN_BPT_INDEX = 2;
+    uint256 public constant EURE_TOKEN_BPT_INDEX = 2;
 
     address public constant MULTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
     address public immutable CARD;
@@ -80,7 +80,7 @@ contract RoboSaverVirtualModule {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @dev All asset related arrays should always follow this (alphabetical) order
-    IAsset[] poolAssets;
+    IAsset[] public poolAssets;
 
     /*//////////////////////////////////////////////////////////////////////////
                                        EVENTS

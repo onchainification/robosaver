@@ -7,9 +7,11 @@ import {Delay} from "@delay-module/Delay.sol";
 import {Roles} from "@roles-module/Roles.sol";
 import {Bouncer} from "@gnosispay-kit/Bouncer.sol";
 
-import {IERC20} from "@gnosispay-kit/interfaces/IERC20.sol";
-
 import {Enum} from "../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
+
+import "@balancer-v2/interfaces/contracts/vault/IVault.sol"; // contains internally also IERC20
+import {IBalancerQueries} from "@balancer-v2/interfaces/contracts/standalone-utils/IBalancerQueries.sol";
+import "@balancer-v2/interfaces/contracts/pool-stable/StablePoolUserData.sol";
 
 import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
 
@@ -20,6 +22,8 @@ contract BaseFixture is Test {
     /*//////////////////////////////////////////////////////////////////////////
                                    CONSTANTS
     //////////////////////////////////////////////////////////////////////////*/
+
+    uint256 constant DIFF_MIN_OUT_CALC_ALLOWED = 90000000000000; // 0.00009 ether units
 
     address constant KEEPER = address(747834834);
 
@@ -54,6 +58,9 @@ contract BaseFixture is Test {
     address constant EURE_MINTER = 0x882145B1F9764372125861727d7bE616c84010Ef;
 
     bytes4 constant ADJUST_POOL_SELECTOR = 0xba2f0056;
+
+    // balancer helper
+    IBalancerQueries constant BALANCER_QUERIES = IBalancerQueries(0x0F3e0c4218b7b0108a3643cFe9D3ec0d4F57c54e);
 
     // gnosis pay modules
     Delay delayModule;
@@ -170,5 +177,32 @@ contract BaseFixture is Test {
         assertEq(nonce, 0);
         assertEq(target, address(0));
         assertEq(payload, emptyBytes);
+    }
+
+    function _getBptOutExpected(uint256 _amount) internal returns (uint256 bptOutExpected_) {
+        uint256[] memory maxAmountsIn = new uint256[](3);
+        maxAmountsIn[roboModule.EURE_TOKEN_BPT_INDEX()] = _amount;
+
+        uint256[] memory amountsIn = new uint256[](2);
+        amountsIn[1] = _amount;
+
+        IAsset[] memory assets = new IAsset[](3);
+        for (uint256 i; i < assets.length; i++) {
+            assets[i] = roboModule.poolAssets(i);
+        }
+
+        IVault.JoinPoolRequest memory request = IVault.JoinPoolRequest(
+            assets,
+            maxAmountsIn,
+            abi.encode(StablePoolUserData.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, amountsIn, 0),
+            false
+        );
+
+        (bptOutExpected_,) = BALANCER_QUERIES.queryJoin(
+            roboModule.BPT_STEUR_EURE_POOL_ID(), roboModule.CARD(), roboModule.CARD(), request
+        );
+
+        // naive: sanity check
+        assertGt(bptOutExpected_, 0);
     }
 }
