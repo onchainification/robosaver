@@ -7,6 +7,8 @@ import {IDelayModifier} from "@gnosispay-kit/interfaces/IDelayModifier.sol";
 
 import {IComposableStablePool} from "./interfaces/IComposableStablePool.sol";
 
+import {Enum} from "safe-smart-account/contracts/libraries/Enum.sol";
+
 import {IAsset} from "@balancer-v2/interfaces/contracts/vault/IAsset.sol";
 import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
 import "@balancer-v2/interfaces/contracts/pool-stable/StablePoolUserData.sol";
@@ -294,9 +296,7 @@ contract RoboSaverVirtualModule {
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
 
         /// @dev Queue the transaction into the delay module
-        delayModule.execTransactionFromModule(
-            address(BALANCER_VAULT), 0, exitPoolPayload, Enum.Operation.Call
-        );
+        delayModule.execTransactionFromModule(address(BALANCER_VAULT), 0, exitPoolPayload, Enum.Operation.Call);
 
         emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_), delayModule.queueNonce());
         emit PoolWithdrawalQueued(CARD, _minAmountOut, block.timestamp);
