@@ -31,7 +31,7 @@ contract TopupTest is BaseFixture {
 
         (canExec, execPayload) = roboModule.checker();
         (bytes memory dataWithoutSelector, bytes4 selector) = _extractEncodeDataWithoutSelector(execPayload);
-        (RoboSaverVirtualModule.PoolAction _action, uint256 _amount) =
+        (RoboSaverVirtualModule.PoolAction _action, uint256 _deficit) =
             abi.decode(dataWithoutSelector, (RoboSaverVirtualModule.PoolAction, uint256));
 
         assertTrue(canExec, "CanExec: not executable");
@@ -46,7 +46,7 @@ contract TopupTest is BaseFixture {
         vm.recordLogs();
 
         vm.prank(KEEPER);
-        roboModule.adjustPool(_action, _amount);
+        roboModule.adjustPool(_action, _deficit);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(
@@ -86,9 +86,9 @@ contract TopupTest is BaseFixture {
             initialBptBal,
             "BPT balance: not decreased after withdrawing from the pool"
         );
-        assertGt(
+        assertEq(
             IERC20(EURE).balanceOf(GNOSIS_SAFE),
-            initialEureBal,
+            initialEureBal + _deficit,
             "EURE balance: not increased after withdrawing from the pool"
         );
     }
