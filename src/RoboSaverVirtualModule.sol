@@ -80,7 +80,7 @@ contract RoboSaverVirtualModule {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @dev All asset related arrays should always follow this (alphabetical) order
-    IAsset[] bpt_steur_eure_assets = new IAsset[](3);
+    IAsset[] poolAssets;
 
     /*//////////////////////////////////////////////////////////////////////////
                                        EVENTS
@@ -181,9 +181,11 @@ contract RoboSaverVirtualModule {
         BPT_STEUR_EURE = IComposableStablePool(address(tokens[1]));
         EURE = tokens[2];
 
-        bpt_steur_eure_assets[0] = IAsset(address(tokens[0]));
-        bpt_steur_eure_assets[1] = IAsset(address(tokens[1]));
-        bpt_steur_eure_assets[2] = IAsset(address(tokens[2]));
+        /// @dev dynamic pool assets array initialization
+        poolAssets = new IAsset[](tokens.length);
+        for (uint256 i; i < tokens.length; i++) {
+            poolAssets[i] = IAsset(address(tokens[i]));
+        }
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -289,7 +291,7 @@ contract RoboSaverVirtualModule {
             BPT_STEUR_EURE.balanceOf(CARD),
             EURE_TOKEN_BPT_INDEX
         );
-        request_ = IVault.ExitPoolRequest(bpt_steur_eure_assets, minAmountsOut, userData, false);
+        request_ = IVault.ExitPoolRequest(poolAssets, minAmountsOut, userData, false);
         bytes memory exitPoolPayload =
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
 
@@ -320,7 +322,7 @@ contract RoboSaverVirtualModule {
             abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn);
 
         /// @dev Queue the transaction into the delay module
-        request_ = IVault.ExitPoolRequest(bpt_steur_eure_assets, minAmountsOut, userData, false);
+        request_ = IVault.ExitPoolRequest(poolAssets, minAmountsOut, userData, false);
         bytes memory exitPoolPayload =
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
         delayModule.execTransactionFromModule(
@@ -354,8 +356,7 @@ contract RoboSaverVirtualModule {
         bytes memory userData =
             abi.encode(StablePoolUserData.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, amountsIn, minimumBPT);
 
-        IVault.JoinPoolRequest memory request =
-            IVault.JoinPoolRequest(bpt_steur_eure_assets, maxAmountsIn, userData, false);
+        IVault.JoinPoolRequest memory request = IVault.JoinPoolRequest(poolAssets, maxAmountsIn, userData, false);
         bytes memory joinPoolPayload =
             abi.encodeWithSelector(IVault.joinPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, CARD, request);
 
