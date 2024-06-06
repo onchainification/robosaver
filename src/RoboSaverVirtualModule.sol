@@ -141,7 +141,6 @@ contract RoboSaverVirtualModule {
     error ZeroUintValue();
 
     error TooHighBps();
-    error TooLowBalance();
 
     error ExternalTxIsQueued();
 
