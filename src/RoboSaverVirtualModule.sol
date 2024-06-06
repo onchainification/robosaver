@@ -140,7 +140,6 @@ contract RoboSaverVirtualModule {
 
     error ZeroAddressValue();
     error ZeroUintValue();
-    error ZeroBalance();
 
     error TooHighBps();
 
@@ -239,14 +238,18 @@ contract RoboSaverVirtualModule {
         }
 
         uint256 balance = EURE.balanceOf(CARD);
-        if (balance == 0) revert ZeroBalance();
+        if (balance == 0) {
+            return (false, bytes("No EURE balance on the card"));
+        }
 
         (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
         if (balance < dailyAllowance) {
             /// @notice there is a deficit; we need to withdraw from the pool
             uint256 bptBalance = BPT_STEUR_EURE.balanceOf(CARD);
-            if (bptBalance == 0) revert ZeroBalance();
+            if (bptBalance == 0) {
+                return (false, bytes("No BPT balance on the card"));
+            }
             uint256 deficit = dailyAllowance - balance;
             uint256 withdrawableEure = bptBalance * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
             if (withdrawableEure < deficit) {
