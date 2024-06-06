@@ -17,7 +17,6 @@ contract AdjustPoolTest is BaseFixture {
         // queue dummy transfer - external tx
         _transferOutBelowThreshold();
 
-
         (bool canExec,) = roboModule.checker();
         assertFalse(canExec);
 
