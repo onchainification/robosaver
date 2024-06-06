@@ -141,6 +141,7 @@ contract RoboSaverVirtualModule {
     error ZeroUintValue();
 
     error TooHighBps();
+    error TooLowBalance();
 
     error ExternalTxIsQueued();
 
@@ -267,7 +268,12 @@ contract RoboSaverVirtualModule {
                 _poolWithdrawal(_amount);
             }
         } else if (_action == PoolAction.DEPOSIT) {
-            _poolDeposit(_amount);
+            uint256 depositableEure = EURE.balanceOf(CARD);
+            if (depositableEure < _amount) {
+                _poolDeposit(depositableEure);
+            } else {
+                _poolDeposit(_amount);
+            }
         } else if (_action == PoolAction.EXEC_QUEUE_POOL_ACTION) {
             _executeNextTx();
         }
