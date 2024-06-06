@@ -7,10 +7,7 @@ import {Enum} from "../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/c
 
 contract CheckerTest is BaseFixture {
     function testChecker_When_TopupIsRequired() public {
-        (bool canExec, bytes memory execPayload) = roboModule.checker();
-
-        assertFalse(canExec);
-        assertEq(execPayload, bytes("Neither deficit nor surplus; no action needed"));
+        _assertCheckerFalseNoDeficitNorSurplus();
 
         uint256 tokenAmountTargetToMove = _transferOutBelowThreshold();
 
@@ -20,22 +17,19 @@ contract CheckerTest is BaseFixture {
 
         delayModule.executeNextTx(EURE, 0, payload, Enum.Operation.Call);
 
-        (canExec, execPayload) = roboModule.checker();
+        (bool canExec, bytes memory execPayload) = roboModule.checker();
 
         assertTrue(canExec, "CanExec: not executable");
         assertEq(bytes4(execPayload), ADJUST_POOL_SELECTOR, "Selector: not adjust pool (0xba2f0056)");
     }
 
     function testChecker_When_TxIsOnQueue() public {
-        (bool canExec, bytes memory execPayload) = roboModule.checker();
-
-        assertFalse(canExec);
-        assertEq(execPayload, bytes("Neither deficit nor surplus; no action needed"));
+        _assertCheckerFalseNoDeficitNorSurplus();
 
         // queue a tx, leverage the `_transferOutBelowThreshold` function from base fixture
         _transferOutBelowThreshold();
 
-        (canExec, execPayload) = roboModule.checker();
+        (bool canExec, bytes memory execPayload) = roboModule.checker();
 
         assertFalse(canExec);
         assertEq(execPayload, bytes("External transaction in queue, wait for it to be executed"));
