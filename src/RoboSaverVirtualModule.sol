@@ -22,7 +22,8 @@ contract RoboSaverVirtualModule {
     /// @notice Enum representing the different types of pool actions
     /// @custom:value0 WITHDRAW Withdraw $EURe from the pool to the card
     /// @custom:value1 DEPOSIT Deposit $EURe from the card into the pool
-    /// @custom:value2 EXEC_QUEUE_POOL_ACTION Execute the queued pool action
+    /// @custom:value2 CLOSE Close the pool position by withdrawing all to $EURe
+    /// @custom:value3 EXEC_QUEUE_POOL_ACTION Execute the queued pool action
     enum PoolAction {
         WITHDRAW,
         DEPOSIT,
