@@ -75,16 +75,16 @@ contract TopupBptTest is BaseFixture {
         // ensure default values at `txQueueData` after execution
         _assertPostDefaultValuesNextTxExec();
 
-        assertLe(
+        assertEq(
             IERC20(EURE).balanceOf(GNOSIS_SAFE),
             initialEureBal - _amount,
-            "EURE balance: did not decrease after depositing into the pool"
+            "EURE balance: did not decrease precisely by the amount deposited into the pool"
         );
         assertApproxEqAbs(
             IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE),
             initialBptBal + bptOutExpected,
             DIFF_MIN_OUT_CALC_ALLOWED,
-            "BPT balance: did not increase after depositing into the pool"
+            "BPT balance: after depositing has greater difference than allowed (received vs expected)"
         );
     }
 }

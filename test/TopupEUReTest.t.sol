@@ -87,13 +87,13 @@ contract TopupTest is BaseFixture {
             IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE),
             initialBptBal - maxBPTAmountIn,
             DIFF_MIN_OUT_CALC_ALLOWED,
-            "BPT balance: not decreased after withdrawing from the pool"
+            "BPT balance: after withdrawing has greater difference than allowed (burn vs expected reduction)"
         );
 
         assertEq(
             IERC20(EURE).balanceOf(GNOSIS_SAFE),
             initialEureBal + _deficit,
-            "EURE balance: not increased after withdrawing from the pool"
+            "EURE balance: did not increase precisely by the amount withdrawn from the pool"
         );
     }
 }
