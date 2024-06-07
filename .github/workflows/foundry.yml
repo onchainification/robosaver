@@ -1,4 +1,4 @@
-name: test
+name: Foundry
 
 on: [workflow_dispatch, pull_request]
 
@@ -7,22 +7,24 @@ env:
   GNOSIS_RPC_URL: ${{ secrets.GNOSIS_RPC_URL }}
 
 jobs:
-
   format:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
-      - name: Run Forge build
-        run: |
-          forge --version
-          forge fmt --check
+      - name: Run Forge format
+        run: forge fmt
         id: formatting
+      - name: Auto commit
+        uses: stefanzweifel/git-auto-commit-action@v5.0.1
+        with:
+          commit_message: "style: ci lint `forge fmt`"
 
   test:
     strategy:
