@@ -7,7 +7,23 @@ env:
   GNOSIS_RPC_URL: ${{ secrets.GNOSIS_RPC_URL }}
 
 jobs:
-  check:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      - name: Run Forge build
+        run: |
+          forge --version
+          forge fmt --check
+        id: formatting
+
+  test:
     strategy:
       fail-fast: true
 
