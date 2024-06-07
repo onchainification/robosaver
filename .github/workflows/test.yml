@@ -7,6 +7,7 @@ env:
   GNOSIS_RPC_URL: ${{ secrets.GNOSIS_RPC_URL }}
 
 jobs:
+
   format:
     runs-on: ubuntu-latest
     steps:
@@ -26,28 +27,23 @@ jobs:
   test:
     strategy:
       fail-fast: true
-
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
-
       - name: Install subdependencies
         run: yarn install --cwd lib/delay-module
-
       - name: Run Forge build
         run: |
           forge --version
           forge build
         id: build
-
       - name: Run Forge tests
         run: |
           forge test -vvv
-        id: test
+        id: test-trace
