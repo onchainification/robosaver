@@ -49,6 +49,7 @@ contract RoboSaverVirtualModule {
     uint16 constant MAX_BPS = 10_000;
 
     uint256 public constant EURE_TOKEN_BPT_INDEX = 2;
+    uint256 public constant EURE_TOKEN_BPT_INDEX_USER = 1;
 
     address public constant MULTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
     address public immutable CARD;
@@ -295,7 +296,7 @@ contract RoboSaverVirtualModule {
         bytes memory userData = abi.encode(
             StablePoolUserData.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT,
             BPT_STEUR_EURE.balanceOf(CARD),
-            EURE_TOKEN_BPT_INDEX
+            EURE_TOKEN_BPT_INDEX_USER
         );
         request_ = IVault.ExitPoolRequest(poolAssets, minAmountsOut, userData, false);
         bytes memory exitPoolPayload =
