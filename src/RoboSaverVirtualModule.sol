@@ -22,10 +22,12 @@ contract RoboSaverVirtualModule {
     /// @notice Enum representing the different types of pool actions
     /// @custom:value0 WITHDRAW Withdraw $EURe from the pool to the card
     /// @custom:value1 DEPOSIT Deposit $EURe from the card into the pool
-    /// @custom:value2 EXEC_QUEUE_POOL_ACTION Execute the queued pool action
+    /// @custom:value2 CLOSE Close the pool position by withdrawing all to $EURe
+    /// @custom:value3 EXEC_QUEUE_POOL_ACTION Execute the queued pool action
     enum PoolAction {
         WITHDRAW,
         DEPOSIT,
+        CLOSE,
         EXEC_QUEUE_POOL_ACTION
     }
 
@@ -231,18 +233,27 @@ contract RoboSaverVirtualModule {
     function checker() external view returns (bool adjustPoolNeeded, bytes memory execPayload) {
         if (_isExternalTxQueued()) return (false, bytes("External transaction in queue, wait for it to be executed"));
 
-        /// @notice checks if there is a transaction queued up in the delay module by the virtual module itself
+        /// @dev check if there is a transaction queued up in the delay module by the virtual module itself
         if (txQueueData.nonce != 0) {
             return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
         }
 
         uint256 balance = EURE.balanceOf(CARD);
+
         (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
         if (balance < dailyAllowance) {
             /// @notice there is a deficit; we need to withdraw from the pool
-            uint256 deficit = dailyAllowance - balance;
-            return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.WITHDRAW, deficit));
+            uint256 bptBalance = BPT_STEUR_EURE.balanceOf(CARD);
+            if (bptBalance == 0) return (false, bytes("No BPT balance on the card"));
+
+            uint256 deficit = dailyAllowance - balance + buffer;
+            uint256 withdrawableEure = bptBalance * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
+            if (withdrawableEure < deficit) {
+                return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.CLOSE, withdrawableEure));
+            } else {
+                return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.WITHDRAW, deficit));
+            }
         } else if (balance > dailyAllowance + buffer) {
             /// @notice there is a surplus; we need to deposit into the pool
             uint256 surplus = balance - (dailyAllowance + buffer);
@@ -260,16 +271,11 @@ contract RoboSaverVirtualModule {
         if (_isExternalTxQueued()) revert ExternalTxIsQueued();
 
         if (_action == PoolAction.WITHDRAW) {
-            /// @dev Close the pool in case the $EURe available for withdrawal is less than the deficit
-            uint256 withdrawableEure =
-                BPT_STEUR_EURE.balanceOf(CARD) * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
-            if (withdrawableEure < _amount) {
-                _poolClose(withdrawableEure);
-            } else {
-                _poolWithdrawal(_amount);
-            }
+            _poolWithdrawal(_amount);
         } else if (_action == PoolAction.DEPOSIT) {
             _poolDeposit(_amount);
+        } else if (_action == PoolAction.CLOSE) {
+            _poolClose(_amount);
         } else if (_action == PoolAction.EXEC_QUEUE_POOL_ACTION) {
             _executeNextTx();
         }
