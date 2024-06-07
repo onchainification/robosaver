@@ -240,7 +240,7 @@ contract RoboSaverVirtualModule {
 
         uint256 balance = EURE.balanceOf(CARD);
 
-        (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
+        (, uint128 dailyAllowance,,,) =   rolesModule.allowances(SET_ALLOWANCE_KEY);
 
         if (balance < dailyAllowance) {
             /// @notice there is a deficit; we need to withdraw from the pool
