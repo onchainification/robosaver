@@ -247,7 +247,7 @@ contract RoboSaverVirtualModule {
             uint256 bptBalance = BPT_STEUR_EURE.balanceOf(CARD);
             if (bptBalance == 0) return (false, bytes("No BPT balance on the card"));
 
-            uint256 deficit = dailyAllowance - balance;
+            uint256 deficit = dailyAllowance - balance + buffer;
             uint256 withdrawableEure = bptBalance * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
             if (withdrawableEure < deficit) {
                 return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.CLOSE, withdrawableEure));
