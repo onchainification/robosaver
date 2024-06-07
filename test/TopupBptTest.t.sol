@@ -72,7 +72,7 @@ contract TopupBptTest is BaseFixture {
         vm.prank(KEEPER);
         roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0);
 
-        // ensure default values at `txQueueData` after execution
+        // ensure default values at `queuedTx` after execution
         _assertPostDefaultValuesNextTxExec();
 
         assertEq(

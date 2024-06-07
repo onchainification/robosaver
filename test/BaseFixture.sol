@@ -162,14 +162,14 @@ contract BaseFixture is Test {
     }
 
     /*//////////////////////////////////////////////////////////////////////////
-        INTERNAL METHODS: HELPERS FOR ASSERTING `txQueueData` STORAGE VALUES
+        INTERNAL METHODS: HELPERS FOR ASSERTING `queuedTx` STORAGE VALUES
     //////////////////////////////////////////////////////////////////////////*/
 
     function _assertPreStorageValuesNextTxExec(address _expectedTarget, bytes memory _eventPayloadGenerated)
         internal
         view
     {
-        (uint256 nonce, address target, bytes memory payload) = roboModule.txQueueData();
+        (uint256 nonce, address target, bytes memory payload) = roboModule.queuedTx();
         assertGt(nonce, 0);
         assertEq(target, _expectedTarget);
         assertEq(payload, _eventPayloadGenerated);
@@ -177,7 +177,7 @@ contract BaseFixture is Test {
 
     function _assertPostDefaultValuesNextTxExec() internal view {
         bytes memory emptyBytes;
-        (uint256 nonce, address target, bytes memory payload) = roboModule.txQueueData();
+        (uint256 nonce, address target, bytes memory payload) = roboModule.queuedTx();
         assertEq(nonce, 0);
         assertEq(target, address(0));
         assertEq(payload, emptyBytes);
