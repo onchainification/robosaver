@@ -25,4 +25,32 @@ contract AdjustPoolTest is BaseFixture {
         vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.ExternalTxIsQueued.selector));
         roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.WITHDRAW, 5e18);
     }
+
+    function test_When_QueueHasExpiredTxs() public {
+        // 1. queue dummy transfer - external tx
+        _transferOutBelowThreshold();
+        uint256 txNonceBeforeCleanup = delayModule.txNonce(); // in this case should be `0`
+        assertEq(txNonceBeforeCleanup, 0);
+
+        (bool canExec, bytes memory execPayload) = roboModule.checker();
+
+        assertFalse(canExec);
+        assertEq(execPayload, bytes("External transaction in queue, wait for it to be executed"));
+
+        // 2. force queue to expire
+        skip(COOLDOWN_PERIOD + EXPIRATION_PERIOD + 1);
+
+        // @note that here it is returning `false` but not anymore external tx being queued as blocker
+        // since it is already on expired status
+        (canExec, execPayload) = roboModule.checker();
+        assertFalse(canExec);
+        assertEq(execPayload, bytes("Neither deficit nor surplus; no action needed"));
+
+        // 3. trigger a normal flow (includes cleanup + queuing of a deposit)
+        vm.prank(KEEPER);
+        roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.DEPOSIT, 2e18);
+
+        // asserts the clean up its checked, since it triggered `txNonce++`
+        assertGt(delayModule.txNonce(), txNonceBeforeCleanup);
+    }
 }
