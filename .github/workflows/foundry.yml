@@ -48,8 +48,7 @@ jobs:
         id: build
       - name: Run Forge tests
         run: |
-          forge test -vvv
-          forge coverage --report lcov
+          forge coverage --report lcov -vvv
         id: test-trace
       - name: Upload coverage report to Codecov
         uses: "codecov/codecov-action@v4"
