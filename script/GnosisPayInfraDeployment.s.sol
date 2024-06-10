@@ -26,7 +26,7 @@ contract GnosisPayInfraDeployment is Script {
     uint128 constant MIN_EURE_ALLOWANCE = 10e18;
 
     // delay config
-    uint256 constant COOL_DOWN_PERIOD = 180; // 3 minutes
+    uint256 constant COOLDOWN_PERIOD = 180; // 3 minutes
     uint256 constant EXPIRATION_PERIOD = 1800; // 30 minutes
 
     // roles config
@@ -56,7 +56,7 @@ contract GnosisPayInfraDeployment is Script {
         rolesModule = new Roles(deployer, GNOSIS_SAFE, GNOSIS_SAFE);
 
         // 2. {DelayModule}
-        delayModule = new Delay(GNOSIS_SAFE, GNOSIS_SAFE, GNOSIS_SAFE, COOL_DOWN_PERIOD, EXPIRATION_PERIOD);
+        delayModule = new Delay(GNOSIS_SAFE, GNOSIS_SAFE, GNOSIS_SAFE, COOLDOWN_PERIOD, EXPIRATION_PERIOD);
 
         // 3. {Bouncer}
         bouncerContract = new Bouncer(GNOSIS_SAFE, address(rolesModule), SET_ALLOWANCE_SELECTOR);

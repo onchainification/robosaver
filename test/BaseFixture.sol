@@ -38,7 +38,7 @@ contract BaseFixture is Test {
     address constant SAFE_EOA_SIGNER = 0x1377aaE47bB2a62f54351Ec36bA6a5313FC5844c;
 
     // delay config
-    uint256 constant COOL_DOWN_PERIOD = 180; // 3 minutes
+    uint256 constant COOLDOWN_PERIOD = 180; // 3 minutes
     uint256 constant EXPIRATION_PERIOD = 1800; // 30 minutes
 
     // roles config
@@ -74,15 +74,13 @@ contract BaseFixture is Test {
     RoboSaverVirtualModule roboModule;
 
     function setUp() public virtual {
-        // ref: https://gnosisscan.io/block/34343562
-        // block height before latest alpha module deployment
-        vm.createSelectFork("gnosis", 34_343_562);
+        vm.createSelectFork("gnosis", 34343700 - 1);
 
         safe = ISafe(payable(GNOSIS_SAFE));
 
         // module deployments to mirror gnosis pay setup: delay & roles
         rolesModule = new Roles(SAFE_EOA_SIGNER, GNOSIS_SAFE, GNOSIS_SAFE);
-        delayModule = new Delay(GNOSIS_SAFE, GNOSIS_SAFE, GNOSIS_SAFE, COOL_DOWN_PERIOD, EXPIRATION_PERIOD);
+        delayModule = new Delay(GNOSIS_SAFE, GNOSIS_SAFE, GNOSIS_SAFE, COOLDOWN_PERIOD, EXPIRATION_PERIOD);
 
         bouncerContract = new Bouncer(GNOSIS_SAFE, address(rolesModule), SET_ALLOWANCE_SELECTOR);
 
@@ -90,16 +88,15 @@ contract BaseFixture is Test {
             new RoboSaverVirtualModule(address(delayModule), address(rolesModule), KEEPER, EURE_BUFFER, SLIPPAGE);
 
         // enable robo module in the delay & gnosis safe for tests flow
-        vm.prank(GNOSIS_SAFE);
+        vm.startPrank(GNOSIS_SAFE);
+
         delayModule.enableModule(address(roboModule));
-        vm.prank(GNOSIS_SAFE);
         delayModule.enableModule(GNOSIS_SAFE);
 
-        vm.prank(GNOSIS_SAFE);
         safe.enableModule(address(delayModule));
-
-        vm.prank(GNOSIS_SAFE);
         safe.enableModule(address(rolesModule));
+
+        vm.stopPrank();
 
         vm.prank(SAFE_EOA_SIGNER);
         rolesModule.setAllowance(
@@ -164,14 +161,14 @@ contract BaseFixture is Test {
     }
 
     /*//////////////////////////////////////////////////////////////////////////
-        INTERNAL METHODS: HELPERS FOR ASSERTING `txQueueData` STORAGE VALUES
+        INTERNAL METHODS: HELPERS FOR ASSERTING `queuedTx` STORAGE VALUES
     //////////////////////////////////////////////////////////////////////////*/
 
     function _assertPreStorageValuesNextTxExec(address _expectedTarget, bytes memory _eventPayloadGenerated)
         internal
         view
     {
-        (uint256 nonce, address target, bytes memory payload) = roboModule.txQueueData();
+        (uint256 nonce, address target, bytes memory payload) = roboModule.queuedTx();
         assertGt(nonce, 0);
         assertEq(target, _expectedTarget);
         assertEq(payload, _eventPayloadGenerated);
@@ -179,7 +176,7 @@ contract BaseFixture is Test {
 
     function _assertPostDefaultValuesNextTxExec() internal view {
         bytes memory emptyBytes;
-        (uint256 nonce, address target, bytes memory payload) = roboModule.txQueueData();
+        (uint256 nonce, address target, bytes memory payload) = roboModule.queuedTx();
         assertEq(nonce, 0);
         assertEq(target, address(0));
         assertEq(payload, emptyBytes);

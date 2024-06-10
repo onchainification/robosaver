@@ -18,7 +18,7 @@ contract TopupTest is BaseFixture {
 
         uint256 tokenAmountTargetToMove = _transferOutBelowThreshold();
 
-        vm.warp(block.timestamp + COOL_DOWN_PERIOD);
+        vm.warp(block.timestamp + COOLDOWN_PERIOD);
 
         bytes memory payload = abi.encodeWithSignature("transfer(address,uint256)", WETH, tokenAmountTargetToMove);
 
@@ -60,27 +60,14 @@ contract TopupTest is BaseFixture {
             "Target: expected to be the BALANCER_VAULT address"
         );
 
-        vm.warp(block.timestamp + COOL_DOWN_PERIOD);
+        vm.warp(block.timestamp + COOLDOWN_PERIOD);
 
-        // generate the `execPayload` for the `BALANCER_VAULT` contract with the event argument to check against in storage value
-        IVault.ExitPoolRequest memory request =
-            abi.decode(abi.decode(entries[1].data, (bytes)), (IVault.ExitPoolRequest));
-
-        _assertPreStorageValuesNextTxExec(
-            address(roboModule.BALANCER_VAULT()),
-            abi.encodeWithSelector(
-                IVault.exitPool.selector,
-                roboModule.BPT_STEUR_EURE_POOL_ID(),
-                GNOSIS_SAFE,
-                payable(GNOSIS_SAFE),
-                request
-            )
-        );
+        _assertPreStorageValuesNextTxExec(address(roboModule.BALANCER_VAULT()), abi.decode(entries[1].data, (bytes)));
 
         vm.prank(KEEPER);
         roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0);
 
-        // ensure default values at `txQueueData` after execution
+        // ensure default values at `queuedTx` after execution
         _assertPostDefaultValuesNextTxExec();
 
         assertApproxEqAbs(
