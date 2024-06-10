@@ -74,7 +74,7 @@ contract BaseFixture is Test {
     RoboSaverVirtualModule roboModule;
 
     function setUp() public virtual {
-        vm.createSelectFork("gnosis");
+        vm.createSelectFork("gnosis", 34343700 - 1);
 
         safe = ISafe(payable(GNOSIS_SAFE));
 
@@ -88,16 +88,15 @@ contract BaseFixture is Test {
             new RoboSaverVirtualModule(address(delayModule), address(rolesModule), KEEPER, EURE_BUFFER, SLIPPAGE);
 
         // enable robo module in the delay & gnosis safe for tests flow
-        vm.prank(GNOSIS_SAFE);
+        vm.startPrank(GNOSIS_SAFE);
+
         delayModule.enableModule(address(roboModule));
-        vm.prank(GNOSIS_SAFE);
         delayModule.enableModule(GNOSIS_SAFE);
 
-        vm.prank(GNOSIS_SAFE);
         safe.enableModule(address(delayModule));
-
-        vm.prank(GNOSIS_SAFE);
         safe.enableModule(address(rolesModule));
+
+        vm.stopPrank();
 
         vm.prank(SAFE_EOA_SIGNER);
         rolesModule.setAllowance(
@@ -162,14 +161,14 @@ contract BaseFixture is Test {
     }
 
     /*//////////////////////////////////////////////////////////////////////////
-        INTERNAL METHODS: HELPERS FOR ASSERTING `txQueueData` STORAGE VALUES
+        INTERNAL METHODS: HELPERS FOR ASSERTING `queuedTx` STORAGE VALUES
     //////////////////////////////////////////////////////////////////////////*/
 
     function _assertPreStorageValuesNextTxExec(address _expectedTarget, bytes memory _eventPayloadGenerated)
         internal
         view
     {
-        (uint256 nonce, address target, bytes memory payload) = roboModule.txQueueData();
+        (uint256 nonce, address target, bytes memory payload) = roboModule.queuedTx();
         assertGt(nonce, 0);
         assertEq(target, _expectedTarget);
         assertEq(payload, _eventPayloadGenerated);
@@ -177,7 +176,7 @@ contract BaseFixture is Test {
 
     function _assertPostDefaultValuesNextTxExec() internal view {
         bytes memory emptyBytes;
-        (uint256 nonce, address target, bytes memory payload) = roboModule.txQueueData();
+        (uint256 nonce, address target, bytes memory payload) = roboModule.queuedTx();
         assertEq(nonce, 0);
         assertEq(target, address(0));
         assertEq(payload, emptyBytes);

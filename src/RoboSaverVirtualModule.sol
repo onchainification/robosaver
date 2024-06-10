@@ -36,7 +36,7 @@ contract RoboSaverVirtualModule {
     /// @param nonce The nonce of the queued transaction
     /// @param target The address of the target contract
     /// @param payload The payload of the transaction to be executed on the target contract
-    struct TxQueueData {
+    struct QueuedTx {
         uint256 nonce;
         address target;
         bytes payload;
@@ -49,6 +49,7 @@ contract RoboSaverVirtualModule {
     uint16 constant MAX_BPS = 10_000;
 
     uint256 public constant EURE_TOKEN_BPT_INDEX = 2;
+    uint256 public constant EURE_TOKEN_BPT_INDEX_USER = 1;
 
     address public constant MULTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
     address public immutable CARD;
@@ -75,7 +76,7 @@ contract RoboSaverVirtualModule {
     uint16 public slippage;
 
     /// @dev Keeps track of the transaction queued up by the virtual module and allows internally to call `executeNextTx`
-    TxQueueData public txQueueData;
+    QueuedTx public queuedTx;
 
     /*//////////////////////////////////////////////////////////////////////////
                                   PRIVATE STORAGE
@@ -234,7 +235,7 @@ contract RoboSaverVirtualModule {
         if (_isExternalTxQueued()) return (false, bytes("External transaction in queue, wait for it to be executed"));
 
         /// @dev check if there is a transaction queued up in the delay module by the virtual module itself
-        if (txQueueData.nonce != 0) {
+        if (queuedTx.nonce != 0) {
             return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
         }
 
@@ -277,7 +278,7 @@ contract RoboSaverVirtualModule {
         } else if (_action == PoolAction.CLOSE) {
             _poolClose(_amount);
         } else if (_action == PoolAction.EXEC_QUEUE_POOL_ACTION) {
-            _executeNextTx();
+            _executeQueuedTx();
         }
     }
 
@@ -295,18 +296,14 @@ contract RoboSaverVirtualModule {
         bytes memory userData = abi.encode(
             StablePoolUserData.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT,
             BPT_STEUR_EURE.balanceOf(CARD),
-            EURE_TOKEN_BPT_INDEX
+            EURE_TOKEN_BPT_INDEX_USER
         );
         request_ = IVault.ExitPoolRequest(poolAssets, minAmountsOut, userData, false);
         bytes memory exitPoolPayload =
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
 
-        /// @dev Queue the transaction into the delay module
-        delayModule.execTransactionFromModule(
-            address(BALANCER_VAULT), 0, exitPoolPayload, IDelayModifier.DelayModuleOperation.Call
-        );
+        _queueTx(address(BALANCER_VAULT), exitPoolPayload);
 
-        emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_), delayModule.queueNonce());
         emit PoolWithdrawalQueued(CARD, _minAmountOut, block.timestamp);
     }
 
@@ -331,14 +328,8 @@ contract RoboSaverVirtualModule {
         request_ = IVault.ExitPoolRequest(poolAssets, minAmountsOut, userData, false);
         bytes memory exitPoolPayload =
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
-        delayModule.execTransactionFromModule(
-            address(BALANCER_VAULT), 0, exitPoolPayload, IDelayModifier.DelayModuleOperation.Call
-        );
+        _queueTx(address(BALANCER_VAULT), exitPoolPayload);
 
-        uint256 cachedQueueNonce = delayModule.queueNonce();
-        txQueueData = TxQueueData(cachedQueueNonce, address(BALANCER_VAULT), exitPoolPayload);
-
-        emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_), cachedQueueNonce);
         emit PoolWithdrawalQueued(CARD, _deficit, block.timestamp);
     }
 
@@ -372,39 +363,47 @@ contract RoboSaverVirtualModule {
         calls_[1] = IMulticall.Call(address(BALANCER_VAULT), joinPoolPayload);
         bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
 
-        /// @dev Queue the batched transactions into the delay module
-        delayModule.execTransactionFromModule(
-            MULTICALL3, 0, multicallPayload, IDelayModifier.DelayModuleOperation.DelegateCall
-        );
+        _queueTx(MULTICALL3, multicallPayload);
 
-        uint256 cachedQueueNonce = delayModule.queueNonce();
-        txQueueData = TxQueueData(cachedQueueNonce, MULTICALL3, multicallPayload);
-
-        emit AdjustPoolTxDataQueued(MULTICALL3, abi.encode(calls_), cachedQueueNonce);
         emit PoolDepositQueued(CARD, _surplus, block.timestamp);
 
         return calls_;
     }
 
-    /// @dev Execute the next transaction in the queue using the storage variable `txQueueData`
-    function _executeNextTx() internal {
-        address cachedTarget = txQueueData.target;
+    /// @dev Execute the next transaction in the queue using the storage variable `queuedTx`
+    function _executeQueuedTx() internal {
+        address cachedTarget = queuedTx.target;
+        bytes memory cachedPayload = queuedTx.payload;
         IDelayModifier.DelayModuleOperation operation = cachedTarget == MULTICALL3
             ? IDelayModifier.DelayModuleOperation.DelegateCall
             : IDelayModifier.DelayModuleOperation.Call;
 
-        delayModule.executeNextTx(cachedTarget, 0, txQueueData.payload, operation);
+        delayModule.executeNextTx(cachedTarget, 0, cachedPayload, operation);
 
-        emit AdjustPoolTxExecuted(cachedTarget, txQueueData.payload, txQueueData.nonce, block.timestamp);
+        emit AdjustPoolTxExecuted(cachedTarget, cachedPayload, queuedTx.nonce, block.timestamp);
 
         // sets every field in the struct to its default value
-        delete txQueueData;
+        delete queuedTx;
     }
 
     /// @notice Check if there is a transaction queued up in the delay module by an external entity. Not our own virtual module.
     /// @return isTxQueued_ True if there is a transaction queued up; false otherwise
     function _isExternalTxQueued() internal view returns (bool isTxQueued_) {
         uint256 cachedQueueNonce = delayModule.queueNonce();
-        if (delayModule.txNonce() != cachedQueueNonce && cachedQueueNonce != txQueueData.nonce) isTxQueued_ = true;
+        if (delayModule.txNonce() != cachedQueueNonce && cachedQueueNonce != queuedTx.nonce) isTxQueued_ = true;
+    }
+
+    /// @notice Queue the transaction into the delay module
+    /// @param _target The address of the target of the transaction
+    /// @param _payload The payload of the transaction
+    function _queueTx(address _target, bytes memory _payload) internal {
+        IDelayModifier.DelayModuleOperation operation = _target == MULTICALL3
+            ? IDelayModifier.DelayModuleOperation.DelegateCall
+            : IDelayModifier.DelayModuleOperation.Call;
+        delayModule.execTransactionFromModule(_target, 0, _payload, operation);
+        uint256 cachedQueueNonce = delayModule.queueNonce();
+        queuedTx = QueuedTx(cachedQueueNonce, _target, _payload);
+
+        emit AdjustPoolTxDataQueued(_target, _payload, cachedQueueNonce);
     }
 }
