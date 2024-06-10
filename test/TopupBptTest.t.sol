@@ -57,7 +57,7 @@ contract TopupBptTest is BaseFixture {
             "Target: expected to be the MULTICALL3 address"
         );
 
-        vm.warp(block.timestamp + COOL_DOWN_PERIOD);
+        vm.warp(block.timestamp + COOLDOWN_PERIOD);
 
         _assertPreStorageValuesNextTxExec(roboModule.MULTICALL3(), abi.decode(entries[1].data, (bytes)));
 
