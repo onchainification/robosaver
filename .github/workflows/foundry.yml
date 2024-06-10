@@ -31,7 +31,8 @@ jobs:
       fail-fast: true
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Install Foundry
@@ -44,8 +45,11 @@ jobs:
         run: |
           forge --version
           forge build
-        id: build
       - name: Run Forge tests
         run: |
-          forge test -vvv
-        id: test-trace
+          forge coverage --report lcov -vvv
+      - name: Upload coverage report to Codecov
+        uses: "codecov/codecov-action@v4"
+        with:
+          files: "./lcov.info"
+          token: ${{ secrets.CODECOV_TOKEN }}
