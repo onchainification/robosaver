@@ -25,4 +25,20 @@ contract AdjustPoolTest is BaseFixture {
         vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.ExternalTxIsQueued.selector));
         roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.WITHDRAW, 5e18);
     }
+
+    function test_When_QueueHasExpiredTxs() public {
+        // 1. queue dummy transfer - external tx
+        _transferOutBelowThreshold();
+        uint256 txNonceBeforeCleanup = delayModule.txNonce(); // in this case should be `0`
+        assertEq(txNonceBeforeCleanup, 0);
+
+        // 2. force queue to expire
+        skip(COOL_DOWN_PERIOD + EXPIRATION_PERIOD + 1);
+
+        // 3. trigger a normal flow (includes cleanup + queuing of a deposit)
+        vm.prank(KEEPER);
+        roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.DEPOSIT, 2e18);
+
+        assertGt(delayModule.txNonce(), txNonceBeforeCleanup);
+    }
 }

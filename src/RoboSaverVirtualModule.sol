@@ -426,8 +426,8 @@ contract RoboSaverVirtualModule {
     function _isCleanQueueRequired() internal view returns (bool anyExpiredTxs_) {
         /// @dev Pick latest `txNonce` as reference to check if it is expired, then trigger clean-up
         if (
-            delayModule.getTxCreatedAt(delayModule.txNonce()) + delayModule.txCooldown() + delayModule.txExpiration()
-                > block.timestamp
+            block.timestamp - delayModule.getTxCreatedAt(delayModule.txNonce())
+                > delayModule.txCooldown() + delayModule.txExpiration()
         ) {
             anyExpiredTxs_ = true;
         }
