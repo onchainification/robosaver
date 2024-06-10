@@ -235,9 +235,9 @@ contract RoboSaverVirtualModule {
         if (_isExternalTxQueued()) return (false, bytes("External transaction in queue, wait for it to be executed"));
 
         /// @dev check if there is a transaction queued up in the delay module by the virtual module itself
-        if (txQueueData.nonce != 0) {
+        if (queuedTx.nonce != 0) {
             /// @notice check if the transaction is still in cool down status or ready to exec
-            if (_isInCoolDown(txQueueData.nonce)) return (false, bytes("Internal transaction in cooldown status"));
+            if (_isInCoolDown(queuedTx.nonce)) return (false, bytes("Internal transaction in cooldown status"));
             return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
         }
 
