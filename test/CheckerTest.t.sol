@@ -60,6 +60,6 @@ contract CheckerTest is BaseFixture {
     function testChecker_When_PoolClose() public {
         _assertCheckerFalseNoDeficitNorSurplus();
 
-        // @todo: implement test case for when pool should be closed
+        /// @todo: implement test case for when pool should be closed
     }
 }
