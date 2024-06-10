@@ -59,12 +59,7 @@ contract TopupBptTest is BaseFixture {
 
         vm.warp(block.timestamp + COOL_DOWN_PERIOD);
 
-        // generate the `execPayload` for the `MULTICALL3` contract with the event argument to check against in storage value
-        IMulticall.Call[] memory calls_ = abi.decode(abi.decode(entries[1].data, (bytes)), (IMulticall.Call[]));
-
-        bytes memory eventPayloadGenerated = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
-
-        _assertPreStorageValuesNextTxExec(roboModule.MULTICALL3(), eventPayloadGenerated);
+        _assertPreStorageValuesNextTxExec(roboModule.MULTICALL3(), abi.decode(entries[1].data, (bytes)));
 
         // two actions:
         // 1. eure exact appproval to `BALANCER_VAULT`
