@@ -38,7 +38,7 @@ contract AdjustPoolTest is BaseFixture {
         assertEq(execPayload, bytes("External transaction in queue, wait for it to be executed"));
 
         // 2. force queue to expire
-        skip(COOL_DOWN_PERIOD + EXPIRATION_PERIOD + 1);
+        skip(COOLDOWN_PERIOD + EXPIRATION_PERIOD + 1);
 
         // @note that here it is returning `false` but not anymore external tx being queued as blocker
         // since it is already on expired status
