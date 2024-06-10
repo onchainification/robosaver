@@ -56,4 +56,10 @@ contract CheckerTest is BaseFixture {
         assertFalse(canExec);
         assertEq(execPayload, bytes("No BPT balance on the card"));
     }
+
+    function testChecker_When_PoolClose() public {
+        _assertCheckerFalseNoDeficitNorSurplus();
+
+        // @todo: implement test case for when pool should be closed
+    }
 }
