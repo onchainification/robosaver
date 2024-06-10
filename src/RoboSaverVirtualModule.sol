@@ -232,7 +232,11 @@ contract RoboSaverVirtualModule {
     /// @return adjustPoolNeeded True if there is a deficit or surplus; false otherwise
     /// @return execPayload The payload of the needed transaction
     function checker() external view returns (bool adjustPoolNeeded, bytes memory execPayload) {
-        if (_isExternalTxQueued()) return (false, bytes("External transaction in queue, wait for it to be executed"));
+        /// @dev check if there is a transaction queued up in the delay module by an external entity
+        ///      and it is not yet expired
+        if (_isExternalTxQueued() && !_isCleanQueueRequired()) {
+            return (false, bytes("External transaction in queue, wait for it to be executed"));
+        }
 
         /// @dev check if there is a transaction queued up in the delay module by the virtual module itself
         if (queuedTx.nonce != 0) {
@@ -271,6 +275,7 @@ contract RoboSaverVirtualModule {
     /// @param _action The action to take: deposit or withdraw
     /// @param _amount The amount of $EURe to deposit or withdraw
     function adjustPool(PoolAction _action, uint256 _amount) external onlyKeeper {
+        if (_isCleanQueueRequired()) delayModule.skipExpired();
         if (_isExternalTxQueued()) revert ExternalTxIsQueued();
 
         if (_action == PoolAction.WITHDRAW) {
@@ -415,5 +420,17 @@ contract RoboSaverVirtualModule {
     function _isInCoolDown(uint256 _nonce) internal view returns (bool isInCoolDown_) {
         /// @dev Requires deducting 1 from the storage nonce, since the delay module increments after writing timestamp in their internal storage
         if (block.timestamp - delayModule.getTxCreatedAt(_nonce - 1) <= delayModule.txCooldown()) isInCoolDown_ = true;
+    }
+
+    /// @notice Check if any transactions are expired
+    /// @return anyExpiredTxs_ True if any transactions are expired; false otherwise
+    function _isCleanQueueRequired() internal view returns (bool anyExpiredTxs_) {
+        /// @dev Pick latest `txNonce` as reference to check if it is expired, then trigger clean-up
+        if (
+            block.timestamp - delayModule.getTxCreatedAt(delayModule.txNonce())
+                > delayModule.txCooldown() + delayModule.txExpiration()
+        ) {
+            anyExpiredTxs_ = true;
+        }
     }
 }
