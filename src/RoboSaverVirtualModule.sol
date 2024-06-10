@@ -24,11 +24,13 @@ contract RoboSaverVirtualModule {
     /// @custom:value1 DEPOSIT Deposit $EURe from the card into the pool
     /// @custom:value2 CLOSE Close the pool position by withdrawing all to $EURe
     /// @custom:value3 EXEC_QUEUE_POOL_ACTION Execute the queued pool action
+    /// @custom:value4 EXEC_SKIP_EXPIRED Executes a clean up by calling in the delay module `skipExpired`
     enum PoolAction {
         WITHDRAW,
         DEPOSIT,
         CLOSE,
-        EXEC_QUEUE_POOL_ACTION
+        EXEC_QUEUE_POOL_ACTION,
+        EXEC_SKIP_EXPIRED
     }
 
     /// @notice Struct representing the data needed to execute a queued transaction
@@ -231,7 +233,13 @@ contract RoboSaverVirtualModule {
     /// @return adjustPoolNeeded True if there is a deficit or surplus; false otherwise
     /// @return execPayload The payload of the needed transaction
     function checker() external view returns (bool adjustPoolNeeded, bytes memory execPayload) {
-        if (_isExternalTxQueued()) return (false, bytes("External transaction in queue, wait for it to be executed"));
+        if (_isExternalTxQueued()) {
+            /// @notice check if any txs are expired. If so, prioritized a clean up `skipExpired`
+            if (_anyExpiredTxs()) {
+                return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.EXEC_SKIP_EXPIRED, 0));
+            }
+            return (false, bytes("External transaction in queue, wait for it to be executed"));
+        }
 
         /// @dev check if there is a transaction queued up in the delay module by the virtual module itself
         if (txQueueData.nonce != 0) {
@@ -270,6 +278,7 @@ contract RoboSaverVirtualModule {
     /// @param _action The action to take: deposit or withdraw
     /// @param _amount The amount of $EURe to deposit or withdraw
     function adjustPool(PoolAction _action, uint256 _amount) external onlyKeeper {
+        if (_action == PoolAction.EXEC_SKIP_EXPIRED) delayModule.skipExpired();
         if (_isExternalTxQueued()) revert ExternalTxIsQueued();
 
         if (_action == PoolAction.WITHDRAW) {
@@ -416,5 +425,17 @@ contract RoboSaverVirtualModule {
     function _isInCoolDown(uint256 _nonce) internal view returns (bool isInCoolDown_) {
         /// @dev Requires deducting 1 from the storage nonce, since the delay module increments after writing timestamp in their internal storage
         if (block.timestamp - delayModule.getTxCreatedAt(_nonce - 1) <= delayModule.txCooldown()) isInCoolDown_ = true;
+    }
+
+    /// @notice Check if any transactions are expired
+    /// @return anyExpiredTxs_ True if any transactions are expired; false otherwise
+    function _anyExpiredTxs() internal view returns (bool anyExpiredTxs_) {
+        /// @dev Pick latest `txNonce` as reference to check if it is expired, then trigger clean-up
+        if (
+            delayModule.getTxCreatedAt(delayModule.txNonce()) + delayModule.txCooldown() + delayModule.txExpiration()
+                > block.timestamp
+        ) {
+            anyExpiredTxs_ = true;
+        }
     }
 }
