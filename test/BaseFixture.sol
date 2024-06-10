@@ -88,16 +88,15 @@ contract BaseFixture is Test {
             new RoboSaverVirtualModule(address(delayModule), address(rolesModule), KEEPER, EURE_BUFFER, SLIPPAGE);
 
         // enable robo module in the delay & gnosis safe for tests flow
-        vm.prank(GNOSIS_SAFE);
+        vm.startPrank(GNOSIS_SAFE);
+
         delayModule.enableModule(address(roboModule));
-        vm.prank(GNOSIS_SAFE);
         delayModule.enableModule(GNOSIS_SAFE);
 
-        vm.prank(GNOSIS_SAFE);
         safe.enableModule(address(delayModule));
-
-        vm.prank(GNOSIS_SAFE);
         safe.enableModule(address(rolesModule));
+
+        vm.stopPrank();
 
         vm.prank(SAFE_EOA_SIGNER);
         rolesModule.setAllowance(
