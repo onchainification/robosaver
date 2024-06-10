@@ -24,13 +24,11 @@ contract RoboSaverVirtualModule {
     /// @custom:value1 DEPOSIT Deposit $EURe from the card into the pool
     /// @custom:value2 CLOSE Close the pool position by withdrawing all to $EURe
     /// @custom:value3 EXEC_QUEUE_POOL_ACTION Execute the queued pool action
-    /// @custom:value4 EXEC_SKIP_EXPIRED Executes a clean up by calling in the delay module `skipExpired`
     enum PoolAction {
         WITHDRAW,
         DEPOSIT,
         CLOSE,
-        EXEC_QUEUE_POOL_ACTION,
-        EXEC_SKIP_EXPIRED
+        EXEC_QUEUE_POOL_ACTION
     }
 
     /// @notice Struct representing the data needed to execute a queued transaction
@@ -234,10 +232,6 @@ contract RoboSaverVirtualModule {
     /// @return execPayload The payload of the needed transaction
     function checker() external view returns (bool adjustPoolNeeded, bytes memory execPayload) {
         if (_isExternalTxQueued()) {
-            /// @notice check if any txs are expired. If so, prioritized a clean up `skipExpired`
-            if (_anyExpiredTxs()) {
-                return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.EXEC_SKIP_EXPIRED, 0));
-            }
             return (false, bytes("External transaction in queue, wait for it to be executed"));
         }
 
@@ -278,7 +272,7 @@ contract RoboSaverVirtualModule {
     /// @param _action The action to take: deposit or withdraw
     /// @param _amount The amount of $EURe to deposit or withdraw
     function adjustPool(PoolAction _action, uint256 _amount) external onlyKeeper {
-        if (_action == PoolAction.EXEC_SKIP_EXPIRED) delayModule.skipExpired();
+        if (_isCleanQueueRequired()) delayModule.skipExpired();
         if (_isExternalTxQueued()) revert ExternalTxIsQueued();
 
         if (_action == PoolAction.WITHDRAW) {
@@ -429,7 +423,7 @@ contract RoboSaverVirtualModule {
 
     /// @notice Check if any transactions are expired
     /// @return anyExpiredTxs_ True if any transactions are expired; false otherwise
-    function _anyExpiredTxs() internal view returns (bool anyExpiredTxs_) {
+    function _isCleanQueueRequired() internal view returns (bool anyExpiredTxs_) {
         /// @dev Pick latest `txNonce` as reference to check if it is expired, then trigger clean-up
         if (
             delayModule.getTxCreatedAt(delayModule.txNonce()) + delayModule.txCooldown() + delayModule.txExpiration()
