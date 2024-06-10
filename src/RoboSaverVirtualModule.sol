@@ -304,7 +304,6 @@ contract RoboSaverVirtualModule {
 
         _queueTx(address(BALANCER_VAULT), exitPoolPayload);
 
-        emit AdjustPoolTxDataQueued(address(BALANCER_VAULT), abi.encode(request_), delayModule.queueNonce());
         emit PoolWithdrawalQueued(CARD, _minAmountOut, block.timestamp);
     }
 
