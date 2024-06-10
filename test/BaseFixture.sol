@@ -38,7 +38,7 @@ contract BaseFixture is Test {
     address constant SAFE_EOA_SIGNER = 0x1377aaE47bB2a62f54351Ec36bA6a5313FC5844c;
 
     // delay config
-    uint256 constant COOL_DOWN_PERIOD = 180; // 3 minutes
+    uint256 constant COOLDOWN_PERIOD = 180; // 3 minutes
     uint256 constant EXPIRATION_PERIOD = 1800; // 30 minutes
 
     // roles config
@@ -80,7 +80,7 @@ contract BaseFixture is Test {
 
         // module deployments to mirror gnosis pay setup: delay & roles
         rolesModule = new Roles(SAFE_EOA_SIGNER, GNOSIS_SAFE, GNOSIS_SAFE);
-        delayModule = new Delay(GNOSIS_SAFE, GNOSIS_SAFE, GNOSIS_SAFE, COOL_DOWN_PERIOD, EXPIRATION_PERIOD);
+        delayModule = new Delay(GNOSIS_SAFE, GNOSIS_SAFE, GNOSIS_SAFE, COOLDOWN_PERIOD, EXPIRATION_PERIOD);
 
         bouncerContract = new Bouncer(GNOSIS_SAFE, address(rolesModule), SET_ALLOWANCE_SELECTOR);
 

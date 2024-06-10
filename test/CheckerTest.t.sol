@@ -15,7 +15,7 @@ contract CheckerTest is BaseFixture {
 
         uint256 tokenAmountTargetToMove = _transferOutBelowThreshold();
 
-        vm.warp(block.timestamp + COOL_DOWN_PERIOD);
+        vm.warp(block.timestamp + COOLDOWN_PERIOD);
 
         bytes memory payload = abi.encodeWithSignature("transfer(address,uint256)", WETH, tokenAmountTargetToMove);
 
@@ -44,7 +44,7 @@ contract CheckerTest is BaseFixture {
 
         // move out $EURe to get into `balance < dailyAllowance` flow and ensure BPT balance is null
         uint256 tokenAmountTargetToMove = _transferOutBelowThreshold();
-        vm.warp(block.timestamp + COOL_DOWN_PERIOD);
+        vm.warp(block.timestamp + COOLDOWN_PERIOD);
         bytes memory payload = abi.encodeWithSignature("transfer(address,uint256)", WETH, tokenAmountTargetToMove);
         delayModule.executeNextTx(EURE, 0, payload, Enum.Operation.Call);
 
@@ -60,7 +60,7 @@ contract CheckerTest is BaseFixture {
     }
 
     function testChecker_When_internalTxIsQueued() public {
-        // 1. assert that internal tx is being queued and within cool down
+        // 1. assert that internal tx is being queued and within cooldown
         vm.prank(KEEPER);
         roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.DEPOSIT, 1000);
 
@@ -68,14 +68,14 @@ contract CheckerTest is BaseFixture {
         assertFalse(canExec);
         assertEq(execPayload, bytes("Internal transaction in cooldown status"));
 
-        // 2.1 fwd time still within cool down
+        // 2.1 fwd time still within cooldown
         vm.warp(block.timestamp + 50);
         (canExec, execPayload) = roboModule.checker();
         assertFalse(canExec);
         assertEq(execPayload, bytes("Internal transaction in cooldown status"));
 
-        // 2.2. fwd time beyond cool down
-        vm.warp(block.timestamp + COOL_DOWN_PERIOD);
+        // 2.2. fwd time beyond cooldown
+        vm.warp(block.timestamp + COOLDOWN_PERIOD);
 
         // 3. assert that checker returns true and action type `EXEC_QUEUE_POOL_ACTION`
         (canExec, execPayload) = roboModule.checker();
