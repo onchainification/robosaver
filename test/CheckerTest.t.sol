@@ -7,6 +7,8 @@ import {IERC20} from "@gnosispay-kit/interfaces/IERC20.sol";
 
 import {Enum} from "../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 
+import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
+
 contract CheckerTest is BaseFixture {
     function testChecker_When_TopupIsRequired() public {
         _assertCheckerFalseNoDeficitNorSurplus();
@@ -55,5 +57,34 @@ contract CheckerTest is BaseFixture {
         vm.clearMockedCalls();
         assertFalse(canExec);
         assertEq(execPayload, bytes("No BPT balance on the card"));
+    }
+
+    function testChecker_When_internalTxIsQueued() public {
+        // 1. assert that internal tx is being queued and within cool down
+        vm.prank(KEEPER);
+        roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.DEPOSIT, 1000);
+
+        (bool canExec, bytes memory execPayload) = roboModule.checker();
+        assertFalse(canExec);
+        assertEq(execPayload, bytes("Internal transaction in cooldown status"));
+
+        // 2.1 fwd time still within cool down
+        vm.warp(block.timestamp + 50);
+        (canExec, execPayload) = roboModule.checker();
+        assertFalse(canExec);
+        assertEq(execPayload, bytes("Internal transaction in cooldown status"));
+
+        // 2.2. fwd time beyond cool down
+        vm.warp(block.timestamp + COOL_DOWN_PERIOD);
+
+        // 3. assert that checker returns true and action type `EXEC_QUEUE_POOL_ACTION`
+        (canExec, execPayload) = roboModule.checker();
+        assertTrue(canExec);
+
+        (bytes memory dataWithoutSelector,) = _extractEncodeDataWithoutSelector(execPayload);
+        (RoboSaverVirtualModule.PoolAction _action, uint256 _amount) =
+            abi.decode(dataWithoutSelector, (RoboSaverVirtualModule.PoolAction, uint256));
+        assertEq(uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION));
+        assertEq(_amount, 0);
     }
 }

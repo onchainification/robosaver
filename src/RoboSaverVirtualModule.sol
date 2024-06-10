@@ -235,6 +235,8 @@ contract RoboSaverVirtualModule {
 
         /// @dev check if there is a transaction queued up in the delay module by the virtual module itself
         if (txQueueData.nonce != 0) {
+            /// @notice check if the transaction is still in cool down status or ready to exec
+            if (_isInCoolDown(txQueueData.nonce)) return (false, bytes("Internal transaction in cooldown status"));
             return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
         }
 
@@ -406,5 +408,13 @@ contract RoboSaverVirtualModule {
     function _isExternalTxQueued() internal view returns (bool isTxQueued_) {
         uint256 cachedQueueNonce = delayModule.queueNonce();
         if (delayModule.txNonce() != cachedQueueNonce && cachedQueueNonce != txQueueData.nonce) isTxQueued_ = true;
+    }
+
+    /// @notice Check if the transaction is still in cool down status or ready to exec
+    /// @param _nonce The nonce of the transaction
+    /// @return isInCoolDown_ True if the transaction is still in cool down status; false otherwise
+    function _isInCoolDown(uint256 _nonce) internal view returns (bool isInCoolDown_) {
+        /// @dev Requires deducting 1 from the storage nonce, since the delay module increments after writing timestamp in their internal storage
+        if (block.timestamp - delayModule.getTxCreatedAt(_nonce - 1) <= delayModule.txCooldown()) isInCoolDown_ = true;
     }
 }
