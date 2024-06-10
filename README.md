@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/github/onchainification/robosaver/graph/badge.svg?token=745LCSOH0I)](https://codecov.io/github/onchainification/robosaver)
+
 # RoboSaver
 
 RoboSaver turns your [Gnosis Pay card](https://gnosispay.com/) into an automated savings account!
