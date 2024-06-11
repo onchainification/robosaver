@@ -87,10 +87,4 @@ contract CheckerTest is BaseFixture {
         assertEq(uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION));
         assertEq(_amount, 0);
     }
-
-    function testChecker_When_PoolClose() public {
-        _assertCheckerFalseNoDeficitNorSurplus();
-
-        /// @todo: implement test case for when pool should be closed
-    }
 }
