@@ -89,13 +89,19 @@ contract RoboSaverVirtualModule {
                                        EVENTS
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @notice Emitted when a withdrawal pool transaction is being queued up
+    /// @notice Emitted when a transaction to close the pool has been queued up
+    /// @param safe The address of the card
+    /// @param amount The minimum amount of $EURe to receive from the pool closure
+    /// @param timestamp The timestamp of the transaction
+    event PoolCloseQueued(address indexed safe, uint256 amount, uint256 timestamp);
+
+    /// @notice Emitted when a transaction to withdrawal from the pool has been queued up
     /// @param safe The address of the card
     /// @param amount The amount of $EURe to withdraw from the pool
     /// @param timestamp The timestamp of the transaction
     event PoolWithdrawalQueued(address indexed safe, uint256 amount, uint256 timestamp);
 
-    /// @notice Emitted when a deposit pool transaction is being queued up
+    /// @notice Emitted when a transaction to deposit into the pool has been queued up
     /// @param safe The address of the card
     /// @param amount The amount of $EURe to deposit into the pool
     /// @param timestamp The timestamp of the transaction
@@ -311,7 +317,7 @@ contract RoboSaverVirtualModule {
 
         _queueTx(address(BALANCER_VAULT), exitPoolPayload);
 
-        emit PoolWithdrawalQueued(CARD, _minAmountOut, block.timestamp);
+        emit PoolCloseQueued(CARD, _minAmountOut, block.timestamp);
     }
 
     /// @notice Withdraw $EURe from the pool
