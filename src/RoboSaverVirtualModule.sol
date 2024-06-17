@@ -198,6 +198,22 @@ contract RoboSaverVirtualModule {
     }
 
     /*//////////////////////////////////////////////////////////////////////////
+                                    PUBLIC VIEWS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice A function that returns name of the virtual module and its base currency concatenated
+    function name() public pure returns (string memory) {
+        // @todo once the base currency is dynamic, this should be updated to read directly the symbol of it
+        // `string.concat("RoboSaverVirtualModule-", BASE_CURRENCY.symbol());`
+        return "RoboSaverVirtualModule-EURE";
+    }
+
+    /// @notice A function that returns version of the virtual module
+    function version() public pure returns (string memory) {
+        return "v0.0.2-alpha2";
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
                                   EXTERNAL METHODS
     //////////////////////////////////////////////////////////////////////////*/
 

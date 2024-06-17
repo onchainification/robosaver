@@ -19,10 +19,10 @@ contract TopupBptTest is BaseFixture {
     function testTopupBpt() public {
         // mint further EURE to be way above buffer
         vm.prank(EURE_MINTER);
-        IEURe(EURE).mintTo(GNOSIS_SAFE, EURE_TO_MINT);
+        IEURe(EURE).mintTo(address(safe), EURE_TO_MINT);
 
-        uint256 initialEureBal = IERC20(EURE).balanceOf(GNOSIS_SAFE);
-        uint256 initialBptBal = IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE);
+        uint256 initialEureBal = IERC20(EURE).balanceOf(address(safe));
+        uint256 initialBptBal = IERC20(BPT_STEUR_EURE).balanceOf(address(safe));
 
         (bool canExec, bytes memory execPayload) = roboModule.checker();
         (bytes memory dataWithoutSelector, bytes4 selector) = _extractEncodeDataWithoutSelector(execPayload);
@@ -71,12 +71,12 @@ contract TopupBptTest is BaseFixture {
         _assertPostDefaultValuesNextTxExec();
 
         assertEq(
-            IERC20(EURE).balanceOf(GNOSIS_SAFE),
+            IERC20(EURE).balanceOf(address(safe)),
             initialEureBal - _amount,
             "EURE balance: did not decrease precisely by the amount deposited into the pool"
         );
         assertApproxEqAbs(
-            IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE),
+            IERC20(BPT_STEUR_EURE).balanceOf(address(safe)),
             initialBptBal + bptOutExpected,
             DIFF_MIN_OUT_CALC_ALLOWED,
             "BPT balance: after depositing has greater difference than allowed (received vs expected)"
