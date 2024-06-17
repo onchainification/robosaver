@@ -26,6 +26,16 @@ contract AdjustPoolTest is BaseFixture {
         roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.WITHDRAW, 5e18);
     }
 
+    function test_RevertWhen_VirtualModuleIsDisabled() public {
+        vm.prank(address(safe));
+        // `disableModule(address prevModule, address module)`
+        delayModule.disableModule(address(safe), address(roboModule));
+
+        vm.prank(roboModule.keeper());
+        vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.VirtualModuleNotEnabled.selector));
+        roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.WITHDRAW, 5e18);
+    }
+
     function test_When_QueueHasExpiredTxs() public {
         // 1. queue dummy transfer - external tx
         _transferOutBelowThreshold();
