@@ -15,6 +15,7 @@ import "@balancer-v2/interfaces/contracts/pool-stable/StablePoolUserData.sol";
 
 import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
 
+import {ISafeProxyFactory} from "@gnosispay-kit/interfaces/ISafeProxyFactory.sol";
 import {ISafe} from "@gnosispay-kit/interfaces/ISafe.sol";
 import {IEURe} from "../src/interfaces/eure/IEURe.sol";
 
@@ -34,8 +35,9 @@ contract BaseFixture is Test {
     uint128 constant MIN_EURE_ALLOWANCE = 200e18;
     uint256 constant EURE_BUFFER = 50e18;
 
-    address constant GNOSIS_SAFE = 0xa4A4a4879dCD3289312884e9eC74Ed37f9a92a55;
-    address constant SAFE_EOA_SIGNER = 0x1377aaE47bB2a62f54351Ec36bA6a5313FC5844c;
+    ISafeProxyFactory constant SAFE_FACTORY = ISafeProxyFactory(0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2);
+    address constant SAFE_SINGLETON = 0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552;
+    address constant SAFE_EOA_SIGNER = address(5454656565);
 
     // delay config
     uint256 constant COOLDOWN_PERIOD = 180; // 3 minutes
@@ -74,24 +76,40 @@ contract BaseFixture is Test {
     RoboSaverVirtualModule roboModule;
 
     function setUp() public virtual {
-        vm.createSelectFork("gnosis", 34343700 - 1);
+        vm.createSelectFork("gnosis");
 
-        safe = ISafe(payable(GNOSIS_SAFE));
+        // deploy fresh safe instance
+        address[] memory safeOwners = new address[](1);
+        safeOwners[0] = SAFE_EOA_SIGNER;
+
+        bytes memory initializer = abi.encodeWithSelector(
+            ISafe.setup.selector,
+            safeOwners, // owners
+            1, // threshold
+            address(0), // to
+            abi.encode(0), // data
+            address(0), // fallbackHandler
+            address(0), // paymentToken
+            0, // payment
+            payable(address(0)) // paymentReceiver
+        );
+
+        safe = ISafe(payable(address(SAFE_FACTORY.createProxyWithNonce(SAFE_SINGLETON, initializer, 50))));
 
         // module deployments to mirror gnosis pay setup: delay & roles
-        rolesModule = new Roles(SAFE_EOA_SIGNER, GNOSIS_SAFE, GNOSIS_SAFE);
-        delayModule = new Delay(GNOSIS_SAFE, GNOSIS_SAFE, GNOSIS_SAFE, COOLDOWN_PERIOD, EXPIRATION_PERIOD);
+        rolesModule = new Roles(SAFE_EOA_SIGNER, address(safe), address(safe));
+        delayModule = new Delay(address(safe), address(safe), address(safe), COOLDOWN_PERIOD, EXPIRATION_PERIOD);
 
-        bouncerContract = new Bouncer(GNOSIS_SAFE, address(rolesModule), SET_ALLOWANCE_SELECTOR);
+        bouncerContract = new Bouncer(address(safe), address(rolesModule), SET_ALLOWANCE_SELECTOR);
 
         roboModule =
             new RoboSaverVirtualModule(address(delayModule), address(rolesModule), KEEPER, EURE_BUFFER, SLIPPAGE);
 
         // enable robo module in the delay & gnosis safe for tests flow
-        vm.startPrank(GNOSIS_SAFE);
+        vm.startPrank(address(safe));
 
         delayModule.enableModule(address(roboModule));
-        delayModule.enableModule(GNOSIS_SAFE);
+        delayModule.enableModule(address(safe));
 
         safe.enableModule(address(delayModule));
         safe.enableModule(address(rolesModule));
@@ -118,13 +136,13 @@ contract BaseFixture is Test {
         // @note pendant of hooking up a keeper service
 
         vm.prank(EURE_MINTER);
-        IEURe(EURE).mintTo(GNOSIS_SAFE, EURE_TO_MINT);
+        IEURe(EURE).mintTo(address(safe), EURE_TO_MINT);
 
-        deal(BPT_STEUR_EURE, GNOSIS_SAFE, EURE_TO_MINT);
+        deal(BPT_STEUR_EURE, address(safe), EURE_TO_MINT);
 
         vm.label(EURE, "EURE");
         vm.label(WETH, "WETH");
-        vm.label(GNOSIS_SAFE, "GNOSIS_SAFE");
+        vm.label(address(safe), "GNOSIS_SAFE");
         vm.label(address(delayModule), "DELAY_MODULE");
         vm.label(address(bouncerContract), "BOUNCER_CONTRACT");
         vm.label(address(rolesModule), "ROLES_MODULE");
@@ -147,7 +165,7 @@ contract BaseFixture is Test {
 
     /// @notice Helper to transfer out EURE from the safe to simulate being below the threshold of daily allowance
     function _transferOutBelowThreshold() internal returns (uint256 tokenAmountTargetToMove_) {
-        uint256 eureBalance = IERC20(EURE).balanceOf(GNOSIS_SAFE);
+        uint256 eureBalance = IERC20(EURE).balanceOf(address(safe));
 
         (, uint128 maxRefill,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
@@ -156,7 +174,7 @@ contract BaseFixture is Test {
         bytes memory payloadErc20Transfer =
             abi.encodeWithSignature("transfer(address,uint256)", WETH, tokenAmountTargetToMove_);
 
-        vm.prank(GNOSIS_SAFE);
+        vm.prank(address(safe));
         delayModule.execTransactionFromModule(EURE, 0, payloadErc20Transfer, Enum.Operation.Call);
     }
 

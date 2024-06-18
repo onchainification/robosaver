@@ -25,8 +25,8 @@ contract TopupTest is BaseFixture {
         delayModule.executeNextTx(EURE, 0, payload, Enum.Operation.Call);
 
         // check balance after mirroring a EURE transaction out from the CARD as "initial balances"
-        uint256 initialBptBal = IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE);
-        uint256 initialEureBal = IERC20(EURE).balanceOf(GNOSIS_SAFE);
+        uint256 initialBptBal = IERC20(BPT_STEUR_EURE).balanceOf(address(safe));
+        uint256 initialEureBal = IERC20(EURE).balanceOf(address(safe));
 
         (bool canExec, bytes memory execPayload) = roboModule.checker();
         (bytes memory dataWithoutSelector, bytes4 selector) = _extractEncodeDataWithoutSelector(execPayload);
@@ -71,14 +71,14 @@ contract TopupTest is BaseFixture {
         _assertPostDefaultValuesNextTxExec();
 
         assertApproxEqAbs(
-            IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE),
+            IERC20(BPT_STEUR_EURE).balanceOf(address(safe)),
             initialBptBal - maxBPTAmountIn,
             DIFF_MIN_OUT_CALC_ALLOWED,
             "BPT balance: after withdrawing has greater difference than allowed (burn vs expected reduction)"
         );
 
         assertEq(
-            IERC20(EURE).balanceOf(GNOSIS_SAFE),
+            IERC20(EURE).balanceOf(address(safe)),
             initialEureBal + _deficit,
             "EURE balance: did not increase precisely by the amount withdrawn from the pool"
         );

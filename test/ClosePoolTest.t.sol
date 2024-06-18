@@ -20,7 +20,7 @@ contract ClosePoolTest is BaseFixture {
         vm.stopPrank();
 
         // // set buffer to > dailyAllowance + ~poolBalance
-        vm.prank(GNOSIS_SAFE);
+        vm.prank(address(safe));
         roboModule.setBuffer(500e18);
 
         // this should now trigger a pool close
@@ -36,6 +36,6 @@ contract ClosePoolTest is BaseFixture {
         roboModule.adjustPool(_action, _amount);
         vm.warp(block.timestamp + COOLDOWN_PERIOD);
         roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0);
-        assertEq(IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE), 0);
+        assertEq(IERC20(BPT_STEUR_EURE).balanceOf(address(safe)), 0);
     }
 }

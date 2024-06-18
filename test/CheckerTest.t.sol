@@ -49,9 +49,9 @@ contract CheckerTest is BaseFixture {
         delayModule.executeNextTx(EURE, 0, payload, Enum.Operation.Call);
 
         vm.mockCall(
-            address(BPT_STEUR_EURE), abi.encodeWithSelector(IERC20.balanceOf.selector, GNOSIS_SAFE), abi.encode(0)
+            address(BPT_STEUR_EURE), abi.encodeWithSelector(IERC20.balanceOf.selector, address(safe)), abi.encode(0)
         );
-        assertEq(IERC20(BPT_STEUR_EURE).balanceOf(GNOSIS_SAFE), 0);
+        assertEq(IERC20(BPT_STEUR_EURE).balanceOf(address(safe)), 0);
 
         (bool canExec, bytes memory execPayload) = roboModule.checker();
         vm.clearMockedCalls();
