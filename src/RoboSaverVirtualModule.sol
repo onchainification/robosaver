@@ -4,7 +4,8 @@ pragma solidity ^0.8.25;
 import {IMulticall} from "@gnosispay-kit/interfaces/IMulticall.sol";
 import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
 
-import {IComposableStablePool} from "./interfaces/IComposableStablePool.sol";
+import {IComposableStablePool} from "./interfaces/balancer/IComposableStablePool.sol";
+import {IChildChainGauge} from "./interfaces/balancer/IChildChainGauge.sol";
 import {IDelayModifier} from "./interfaces/delayModule/IDelayModifier.sol";
 
 import {IAsset} from "@balancer-v2/interfaces/contracts/vault/IAsset.sol";
@@ -62,6 +63,8 @@ contract RoboSaverVirtualModule {
     IERC20 immutable STEUR;
     IERC20 immutable EURE;
 
+    /// @dev Unfortunately there is no way of deriving the gauge address onchain from the pool address
+    IChildChainGauge immutable GAUGE_STEUR_EURE = IChildChainGauge(0x49b7C059bF0A71583918928D33C84Dcb2aa001f8);
     IComposableStablePool immutable BPT_STEUR_EURE;
 
     /*//////////////////////////////////////////////////////////////////////////
