@@ -4,8 +4,8 @@ pragma solidity ^0.8.25;
 import {IMulticall} from "@gnosispay-kit/interfaces/IMulticall.sol";
 import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
 
+import {IRewardPoolDepositWrapper} from "./interfaces/aura/IRewardPoolDepositWrapper.sol";
 import {IComposableStablePool} from "./interfaces/balancer/IComposableStablePool.sol";
-import {IChildChainGauge} from "./interfaces/balancer/IChildChainGauge.sol";
 import {IDelayModifier} from "./interfaces/delayModule/IDelayModifier.sol";
 
 import {IAsset} from "@balancer-v2/interfaces/contracts/vault/IAsset.sol";
@@ -54,6 +54,8 @@ contract RoboSaverVirtualModule {
 
     address public constant MULTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
     address public immutable CARD;
+    // @todo can also be retrieved via 0x98Ef32edd24e2c92525E59afc4475C1242a30184.poolInfo(22)?
+    address public constant AURA_GAUGE_STEUR_EURE = 0x408883E983695DeC78CF66480e6eFeF907a73c21;
 
     IVault public constant BALANCER_VAULT = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
@@ -63,8 +65,8 @@ contract RoboSaverVirtualModule {
     IERC20 immutable STEUR;
     IERC20 immutable EURE;
 
-    /// @dev Unfortunately there is no way of deriving the gauge address onchain from the pool address
-    IChildChainGauge immutable GAUGE_STEUR_EURE = IChildChainGauge(0x49b7C059bF0A71583918928D33C84Dcb2aa001f8);
+    IRewardPoolDepositWrapper constant AURA_DEPOSITOR =
+        IRewardPoolDepositWrapper(0x0Fec3d212BcC29eF3E505B555D7a7343DF0B7F76);
     IComposableStablePool immutable BPT_STEUR_EURE;
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -369,9 +371,9 @@ contract RoboSaverVirtualModule {
     /// @param _surplus The amount of $EURe to deposit into the pool
     /// @return calls_ The calls needed approve $EURe and join the pool
     function _poolDeposit(uint256 _surplus) internal returns (IMulticall.Call[] memory) {
-        /// @dev Build the payload to approve our $EURe to the Balancer Vault
+        /// @dev Build the payload to approve our $EURe to the Aura Depositor
         bytes memory approveEurePayload =
-            abi.encodeWithSignature("approve(address,uint256)", address(BALANCER_VAULT), _surplus);
+            abi.encodeWithSignature("approve(address,uint256)", address(AURA_DEPOSITOR), _surplus);
 
         /// @dev Build the payload to join the pool
         uint256[] memory maxAmountsIn = new uint256[](3);
@@ -386,22 +388,19 @@ contract RoboSaverVirtualModule {
             abi.encode(StablePoolUserData.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, amountsIn, minimumBPT);
 
         IVault.JoinPoolRequest memory request = IVault.JoinPoolRequest(poolAssets, maxAmountsIn, userData, false);
-        bytes memory joinPoolPayload =
-            abi.encodeWithSelector(IVault.joinPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, CARD, request);
-
-        /// @dev Build the payload to approve the bpt token to its respective gauge
-        bytes memory approveBptPayload =
-            abi.encodeWithSignature("approve(address,uint256)", address(GAUGE_STEUR_EURE), minimumBPT);
-
-        /// @dev Build the payload to stake the bpt into the gauge
-        bytes memory stakeBptPayload = abi.encodeWithSignature("deposit(uint256)", minimumBPT);
+        bytes memory depositAndStakePayload = abi.encodeWithSelector(
+            IRewardPoolDepositWrapper.depositSingle.selector,
+            AURA_GAUGE_STEUR_EURE,
+            address(EURE),
+            _surplus,
+            BPT_STEUR_EURE_POOL_ID,
+            request
+        );
 
         /// @dev Batch all payloads into a multicall
         IMulticall.Call[] memory calls_ = new IMulticall.Call[](4);
         calls_[0] = IMulticall.Call(address(EURE), approveEurePayload);
-        calls_[1] = IMulticall.Call(address(BALANCER_VAULT), joinPoolPayload);
-        calls_[2] = IMulticall.Call(address(BPT_STEUR_EURE), approveBptPayload);
-        calls_[3] = IMulticall.Call(address(GAUGE_STEUR_EURE), stakeBptPayload);
+        calls_[1] = IMulticall.Call(address(AURA_DEPOSITOR), depositAndStakePayload);
         bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
 
         _queueTx(MULTICALL3, multicallPayload);
