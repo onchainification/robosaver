@@ -87,4 +87,14 @@ contract CheckerTest is BaseFixture {
         assertEq(uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION));
         assertEq(_amount, 0);
     }
+
+    function testChecker_When_VirtualModuleDisabled() public {
+        vm.prank(address(safe));
+        // `disableModule(address prevModule, address module)`
+        delayModule.disableModule(address(safe), address(roboModule));
+
+        (bool canExec, bytes memory execPayload) = roboModule.checker();
+        assertFalse(canExec);
+        assertEq(execPayload, bytes("Virtual module is not enabled"));
+    }
 }
