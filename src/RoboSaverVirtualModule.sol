@@ -370,7 +370,7 @@ contract RoboSaverVirtualModule {
     /// @return calls_ The calls needed approve $EURe and join the pool
     function _poolDeposit(uint256 _surplus) internal returns (IMulticall.Call[] memory) {
         /// @dev Build the payload to approve our $EURe to the Balancer Vault
-        bytes memory approvalPayload =
+        bytes memory approveEurePayload =
             abi.encodeWithSignature("approve(address,uint256)", address(BALANCER_VAULT), _surplus);
 
         /// @dev Build the payload to join the pool
@@ -389,10 +389,19 @@ contract RoboSaverVirtualModule {
         bytes memory joinPoolPayload =
             abi.encodeWithSelector(IVault.joinPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, CARD, request);
 
-        /// @dev Batch approval and pool join payloads into a multicall
-        IMulticall.Call[] memory calls_ = new IMulticall.Call[](2);
-        calls_[0] = IMulticall.Call(address(EURE), approvalPayload);
+        /// @dev Build the payload to approve the bpt token to its respective gauge
+        bytes memory approveBptPayload =
+            abi.encodeWithSignature("approve(address,uint256)", address(GAUGE_STEUR_EURE), minimumBPT);
+
+        /// @dev Build the payload to stake the bpt into the gauge
+        bytes memory stakeBptPayload = abi.encodeWithSignature("deposit(uint256)", minimumBPT);
+
+        /// @dev Batch all payloads into a multicall
+        IMulticall.Call[] memory calls_ = new IMulticall.Call[](4);
+        calls_[0] = IMulticall.Call(address(EURE), approveEurePayload);
         calls_[1] = IMulticall.Call(address(BALANCER_VAULT), joinPoolPayload);
+        calls_[2] = IMulticall.Call(address(BPT_STEUR_EURE), approveBptPayload);
+        calls_[3] = IMulticall.Call(address(GAUGE_STEUR_EURE), stakeBptPayload);
         bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
 
         _queueTx(MULTICALL3, multicallPayload);
