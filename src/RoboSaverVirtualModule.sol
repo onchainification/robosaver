@@ -157,6 +157,7 @@ contract RoboSaverVirtualModule {
     error TooHighBps();
 
     error ExternalTxIsQueued();
+    error VirtualModuleNotEnabled();
 
     /*//////////////////////////////////////////////////////////////////////////
                                       MODIFIERS
@@ -259,6 +260,8 @@ contract RoboSaverVirtualModule {
     /// @return adjustPoolNeeded True if there is a deficit or surplus; false otherwise
     /// @return execPayload The payload of the needed transaction
     function checker() external view returns (bool adjustPoolNeeded, bytes memory execPayload) {
+        if (!delayModule.isModuleEnabled(address(this))) return (false, bytes("Virtual module is not enabled"));
+
         /// @dev check if there is a transaction queued up in the delay module by an external entity
         ///      and it is not yet expired
         if (_isExternalTxQueued() && !_isCleanQueueRequired()) {
@@ -302,6 +305,7 @@ contract RoboSaverVirtualModule {
     /// @param _action The action to take: deposit or withdraw
     /// @param _amount The amount of $EURe to deposit or withdraw
     function adjustPool(PoolAction _action, uint256 _amount) external onlyKeeper {
+        if (!delayModule.isModuleEnabled(address(this))) revert VirtualModuleNotEnabled();
         if (_isCleanQueueRequired()) delayModule.skipExpired();
         if (_isExternalTxQueued()) revert ExternalTxIsQueued();
 
