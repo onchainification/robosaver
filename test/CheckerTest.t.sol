@@ -61,7 +61,7 @@ contract CheckerTest is BaseFixture {
 
     function testChecker_When_internalTxIsQueued() public {
         // 1. assert that internal tx is being queued and within cooldown
-        vm.prank(address(CL_REGISTRY));
+        vm.prank(keeper);
         roboModule.performUpkeep(abi.encode(RoboSaverVirtualModule.PoolAction.DEPOSIT, 1000));
 
         (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");

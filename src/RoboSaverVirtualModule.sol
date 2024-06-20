@@ -178,10 +178,9 @@ contract RoboSaverVirtualModule is
                                      CONSTRUCTOR
     //////////////////////////////////////////////////////////////////////////*/
 
-    constructor(address _delayModule, address _rolesModule, address _keeper, uint256 _buffer, uint16 _slippage) {
+    constructor(address _delayModule, address _rolesModule, uint256 _buffer, uint16 _slippage) {
         delayModule = IDelayModifier(_delayModule);
         rolesModule = IRolesModifier(_rolesModule);
-        keeper = _keeper;
         buffer = _buffer;
         slippage = _slippage;
 

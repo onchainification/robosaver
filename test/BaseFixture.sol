@@ -83,6 +83,9 @@ contract BaseFixture is Test {
     // robosaver module
     RoboSaverVirtualModule roboModule;
 
+    // Keeper address (forwarder): https://docs.chain.link/chainlink-automation/guides/forwarder#securing-your-upkeep
+    address keeper;
+
     function setUp() public virtual {
         vm.createSelectFork("gnosis");
 
@@ -110,9 +113,7 @@ contract BaseFixture is Test {
 
         bouncerContract = new Bouncer(address(safe), address(rolesModule), SET_ALLOWANCE_SELECTOR);
 
-        roboModule = new RoboSaverVirtualModule(
-            address(delayModule), address(rolesModule), address(CL_REGISTRY), EURE_BUFFER, SLIPPAGE
-        );
+        roboModule = new RoboSaverVirtualModule(address(delayModule), address(rolesModule), EURE_BUFFER, SLIPPAGE);
 
         // enable robo module in the delay & gnosis safe for tests flow
         vm.startPrank(address(safe));
@@ -142,6 +143,9 @@ contract BaseFixture is Test {
 
         uint256 upkeepID = CL_REGISTRAR.registerUpkeep(registrationParams);
         assertNotEq(upkeepID, 0);
+
+        keeper = CL_REGISTRY.getForwarder(upkeepID);
+        roboModule.setKeeper(keeper);
 
         vm.stopPrank();
 

@@ -40,7 +40,7 @@ contract TopupBptTest is BaseFixture {
         // listen for `AdjustPoolTxDataQueued` event to capture the payload
         vm.recordLogs();
 
-        vm.prank(address(CL_REGISTRY));
+        vm.prank(keeper);
         roboModule.performUpkeep(execPayload);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
@@ -63,7 +63,7 @@ contract TopupBptTest is BaseFixture {
         // two actions:
         // 1. eure exact appproval to `BALANCER_VAULT`
         // 2. join the pool single sided with the excess
-        vm.prank(address(CL_REGISTRY));
+        vm.prank(keeper);
         roboModule.performUpkeep(abi.encode(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
 
         // ensure default values at `queuedTx` after execution

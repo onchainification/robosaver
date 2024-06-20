@@ -57,7 +57,7 @@ contract AdjustPoolTest is BaseFixture {
         assertEq(execPayload, bytes("Neither deficit nor surplus; no action needed"));
 
         // 3. trigger a normal flow (includes cleanup + queuing of a deposit)
-        vm.prank(address(CL_REGISTRY));
+        vm.prank(keeper);
         roboModule.performUpkeep(abi.encode(RoboSaverVirtualModule.PoolAction.DEPOSIT, 2e18));
 
         // asserts the clean up its checked, since it triggered `txNonce++`
