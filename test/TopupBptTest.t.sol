@@ -24,14 +24,13 @@ contract TopupBptTest is BaseFixture {
         uint256 initialEureBal = IERC20(EURE).balanceOf(address(safe));
         uint256 initialAuraGaugeBalance = IERC20(AURA_GAUGE_STEUR_EURE).balanceOf(address(safe));
 
-        (bool canExec, bytes memory execPayload) = roboModule.checker();
-        (bytes memory dataWithoutSelector, bytes4 selector) = _extractEncodeDataWithoutSelector(execPayload);
+        (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
         (RoboSaverVirtualModule.PoolAction _action, uint256 _amount) =
-            abi.decode(dataWithoutSelector, (RoboSaverVirtualModule.PoolAction, uint256));
+            abi.decode(execPayload, (RoboSaverVirtualModule.PoolAction, uint256));
 
         // since initially it was minted 1000 it should be way above the buffer
         assertTrue(canExec, "CanExec: not executable");
-        assertEq(selector, ADJUST_POOL_SELECTOR, "Selector: not adjust pool (0xba2f0056)");
+        // assertEq(selector, ADJUST_POOL_SELECTOR, "Selector: not adjust pool (0xba2f0056)");
         assertEq(
             uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.DEPOSIT), "PoolAction: not depositing into the pool"
         );
@@ -41,8 +40,8 @@ contract TopupBptTest is BaseFixture {
         // listen for `AdjustPoolTxDataQueued` event to capture the payload
         vm.recordLogs();
 
-        vm.prank(KEEPER);
-        roboModule.adjustPool(_action, _amount);
+        vm.prank(address(CL_REGISTRY));
+        roboModule.performUpkeep(execPayload);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
 
@@ -64,8 +63,8 @@ contract TopupBptTest is BaseFixture {
         // two actions:
         // 1. eure exact appproval to `BALANCER_VAULT`
         // 2. join the pool single sided with the excess
-        vm.prank(KEEPER);
-        roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0);
+        vm.prank(address(CL_REGISTRY));
+        roboModule.performUpkeep(abi.encode(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
 
         // ensure default values at `queuedTx` after execution
         _assertPostDefaultValuesNextTxExec();

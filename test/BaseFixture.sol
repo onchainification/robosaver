@@ -13,6 +13,9 @@ import "@balancer-v2/interfaces/contracts/vault/IVault.sol"; // contains interna
 import {IBalancerQueries} from "@balancer-v2/interfaces/contracts/standalone-utils/IBalancerQueries.sol";
 import "@balancer-v2/interfaces/contracts/pool-stable/StablePoolUserData.sol";
 
+import {IKeeperRegistryMaster} from "../src/interfaces/chainlink/IKeeperRegistryMaster.sol";
+import {IKeeperRegistrar} from "../src/interfaces/chainlink/IKeeperRegistrar.sol";
+
 import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
 
 import {ISafeProxyFactory} from "@gnosispay-kit/interfaces/ISafeProxyFactory.sol";
@@ -25,8 +28,6 @@ contract BaseFixture is Test {
     //////////////////////////////////////////////////////////////////////////*/
 
     uint256 constant DIFF_MIN_OUT_CALC_ALLOWED = 70000000000000; // 0.00007 ether units
-
-    address constant KEEPER = address(747834834);
 
     uint16 constant SLIPPAGE = 200; // 2%
 
@@ -57,6 +58,7 @@ contract BaseFixture is Test {
     address constant WETH = 0x6A023CCd1ff6F2045C3309768eAd9E68F978f6e1;
     address constant BPT_STEUR_EURE = 0x06135A9Ae830476d3a941baE9010B63732a055F4;
     address constant AURA_GAUGE_STEUR_EURE = 0x408883E983695DeC78CF66480e6eFeF907a73c21;
+    address constant LINK = 0xE2e73A1c69ecF83F464EFCE6A5be353a37cA09b2;
 
     address constant EURE_MINTER = 0x882145B1F9764372125861727d7bE616c84010Ef;
 
@@ -64,6 +66,12 @@ contract BaseFixture is Test {
 
     // balancer helper
     IBalancerQueries constant BALANCER_QUERIES = IBalancerQueries(0x0F3e0c4218b7b0108a3643cFe9D3ec0d4F57c54e);
+
+    // CL: https://docs.chain.link/chainlink-automation/overview/supported-networks#gnosis-chain-xdai
+    IKeeperRegistryMaster constant CL_REGISTRY = IKeeperRegistryMaster(0x299c92a219F61a82E91d2062A262f7157F155AC1);
+    IKeeperRegistrar constant CL_REGISTRAR = IKeeperRegistrar(0x0F7E163446AAb41DB5375AbdeE2c3eCC56D9aA32);
+
+    uint96 constant LINK_FOR_TASK_TOP_UP = 1_000e18; // plenty of funds
 
     // gnosis pay modules
     Delay delayModule;
@@ -103,8 +111,9 @@ contract BaseFixture is Test {
 
         bouncerContract = new Bouncer(address(safe), address(rolesModule), SET_ALLOWANCE_SELECTOR);
 
-        roboModule =
-            new RoboSaverVirtualModule(address(delayModule), address(rolesModule), KEEPER, EURE_BUFFER, SLIPPAGE);
+        roboModule = new RoboSaverVirtualModule(
+            address(delayModule), address(rolesModule), address(CL_REGISTRY), EURE_BUFFER, SLIPPAGE
+        );
 
         // enable robo module in the delay & gnosis safe for tests flow
         vm.startPrank(address(safe));
@@ -114,6 +123,26 @@ contract BaseFixture is Test {
 
         safe.enableModule(address(delayModule));
         safe.enableModule(address(rolesModule));
+
+        // registering the task in CL automation service
+        deal(LINK, address(safe), LINK_FOR_TASK_TOP_UP);
+        IERC20(LINK).approve(address(CL_REGISTRAR), LINK_FOR_TASK_TOP_UP);
+
+        IKeeperRegistrar.RegistrationParams memory registrationParams = IKeeperRegistrar.RegistrationParams({
+            name: roboModule.name(),
+            encryptedEmail: "",
+            upkeepContract: address(roboModule),
+            gasLimit: 2_000_000,
+            adminAddress: address(safe),
+            triggerType: 0,
+            checkData: "",
+            triggerConfig: "",
+            offchainConfig: "",
+            amount: LINK_FOR_TASK_TOP_UP
+        });
+
+        uint256 upkeepID = CL_REGISTRAR.registerUpkeep(registrationParams);
+        assertNotEq(upkeepID, 0);
 
         vm.stopPrank();
 
@@ -133,8 +162,6 @@ contract BaseFixture is Test {
 
         vm.prank(SAFE_EOA_SIGNER);
         rolesModule.transferOwnership(address(bouncerContract));
-
-        // @note pendant of hooking up a keeper service
 
         vm.prank(EURE_MINTER);
         IEURe(EURE).mintTo(address(safe), EURE_TO_MINT);
@@ -206,7 +233,7 @@ contract BaseFixture is Test {
     //////////////////////////////////////////////////////////////////////////*/
 
     function _assertCheckerFalseNoDeficitNorSurplus() internal view {
-        (bool canExec, bytes memory execPayload) = roboModule.checker();
+        (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
 
         assertFalse(canExec);
         assertEq(execPayload, bytes("Neither deficit nor surplus; no action needed"));
