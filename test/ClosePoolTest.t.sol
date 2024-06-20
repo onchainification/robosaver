@@ -13,7 +13,7 @@ contract ClosePoolTest is BaseFixture {
 
         // balance=240, dailyAllowance=200, buffer=50
         // deposit 100
-        vm.startPrank(address(CL_REGISTRY));
+        vm.startPrank(keeper);
         roboModule.performUpkeep(abi.encode(RoboSaverVirtualModule.PoolAction.DEPOSIT, 100e18));
         vm.warp(block.timestamp + COOLDOWN_PERIOD);
         roboModule.performUpkeep(abi.encode(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 1));
@@ -31,7 +31,7 @@ contract ClosePoolTest is BaseFixture {
         assertEq(uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.CLOSE));
 
         // exec it and check if pool is closed
-        vm.startPrank(address(CL_REGISTRY));
+        vm.startPrank(keeper);
         roboModule.performUpkeep(execPayload);
         vm.warp(block.timestamp + COOLDOWN_PERIOD);
         roboModule.performUpkeep(abi.encode(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
