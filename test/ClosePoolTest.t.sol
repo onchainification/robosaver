@@ -13,10 +13,10 @@ contract ClosePoolTest is BaseFixture {
 
         // balance=240, dailyAllowance=200, buffer=50
         // deposit 100
-        vm.startPrank(KEEPER);
-        roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.DEPOSIT, 100e18);
+        vm.startPrank(address(CL_REGISTRY));
+        roboModule.performUpkeep(abi.encode(RoboSaverVirtualModule.PoolAction.DEPOSIT, 100e18));
         vm.warp(block.timestamp + COOLDOWN_PERIOD);
-        roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 1);
+        roboModule.performUpkeep(abi.encode(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 1));
         vm.stopPrank();
 
         // // set buffer to > dailyAllowance + ~poolBalance
@@ -24,18 +24,17 @@ contract ClosePoolTest is BaseFixture {
         roboModule.setBuffer(500e18);
 
         // this should now trigger a pool close
-        (bool canExec, bytes memory execPayload) = roboModule.checker();
+        (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
         assertTrue(canExec);
-        (bytes memory dataWithoutSelector,) = _extractEncodeDataWithoutSelector(execPayload);
-        (RoboSaverVirtualModule.PoolAction _action, uint256 _amount) =
-            abi.decode(dataWithoutSelector, (RoboSaverVirtualModule.PoolAction, uint256));
+        (RoboSaverVirtualModule.PoolAction _action,) =
+            abi.decode(execPayload, (RoboSaverVirtualModule.PoolAction, uint256));
         assertEq(uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.CLOSE));
 
         // exec it and check if pool is closed
-        vm.startPrank(KEEPER);
-        roboModule.adjustPool(_action, _amount);
+        vm.startPrank(address(CL_REGISTRY));
+        roboModule.performUpkeep(execPayload);
         vm.warp(block.timestamp + COOLDOWN_PERIOD);
-        roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0);
+        roboModule.performUpkeep(abi.encode(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
         assertEq(IERC20(BPT_STEUR_EURE).balanceOf(address(safe)), 0);
     }
 }

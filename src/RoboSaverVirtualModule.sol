@@ -11,10 +11,14 @@ import {IAsset} from "@balancer-v2/interfaces/contracts/vault/IAsset.sol";
 import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
 import "@balancer-v2/interfaces/contracts/pool-stable/StablePoolUserData.sol";
 
+import {KeeperCompatibleInterface} from "./interfaces/chainlink/KeeperCompatibleInterface.sol";
+
 /// @title RoboSaver: turn your Gnosis Pay card into an automated savings account!
 /// @author onchainification.xyz
 /// @notice Deposit and withdraw $EURe from your Gnosis Pay card to a liquidity pool
-contract RoboSaverVirtualModule {
+contract RoboSaverVirtualModule is
+    KeeperCompatibleInterface // 1 inherited component
+{
     /*//////////////////////////////////////////////////////////////////////////
                                      DATA TYPES
     //////////////////////////////////////////////////////////////////////////*/
@@ -254,7 +258,12 @@ contract RoboSaverVirtualModule {
     /// @notice Check if there is a surplus or deficit of $EURe on the card
     /// @return adjustPoolNeeded True if there is a deficit or surplus; false otherwise
     /// @return execPayload The payload of the needed transaction
-    function checker() external view returns (bool adjustPoolNeeded, bytes memory execPayload) {
+    function checkUpkeep(bytes calldata checkData)
+        external
+        view
+        override
+        returns (bool adjustPoolNeeded, bytes memory execPayload)
+    {
         if (!delayModule.isModuleEnabled(address(this))) return (false, bytes("Virtual module is not enabled"));
 
         /// @dev check if there is a transaction queued up in the delay module by an external entity
@@ -267,7 +276,7 @@ contract RoboSaverVirtualModule {
         if (queuedTx.nonce != 0) {
             /// @notice check if the transaction is still in cooldown or ready to exec
             if (_isInCoolDown(queuedTx.nonce)) return (false, bytes("Internal transaction in cooldown status"));
-            return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
+            return (true, abi.encode(PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
         }
 
         uint256 balance = EURE.balanceOf(CARD);
@@ -282,24 +291,34 @@ contract RoboSaverVirtualModule {
             uint256 deficit = dailyAllowance - balance + buffer;
             uint256 withdrawableEure = bptBalance * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
             if (withdrawableEure < deficit) {
-                return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.CLOSE, withdrawableEure));
+                return (true, abi.encode(PoolAction.CLOSE, withdrawableEure));
             } else {
-                return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.WITHDRAW, deficit));
+                return (true, abi.encode(PoolAction.WITHDRAW, deficit));
             }
         } else if (balance > dailyAllowance + buffer) {
             /// @notice there is a surplus; we need to deposit into the pool
             uint256 surplus = balance - (dailyAllowance + buffer);
-            return (true, abi.encodeWithSelector(this.adjustPool.selector, PoolAction.DEPOSIT, surplus));
+            return (true, abi.encode(PoolAction.DEPOSIT, surplus));
         }
 
         /// @notice neither deficit nor surplus; no action needed
         return (false, bytes("Neither deficit nor surplus; no action needed"));
     }
 
+    function performUpkeep(bytes calldata _performData) external override onlyKeeper {
+        // decode `_performData`
+        (PoolAction action, uint256 amount) = abi.decode(_performData, (PoolAction, uint256));
+        _adjustPool(action, amount);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                   INTERNAL METHODS
+    //////////////////////////////////////////////////////////////////////////*/
+
     /// @notice Adjust the pool by depositing or withdrawing $EURe
     /// @param _action The action to take: deposit or withdraw
     /// @param _amount The amount of $EURe to deposit or withdraw
-    function adjustPool(PoolAction _action, uint256 _amount) external onlyKeeper {
+    function _adjustPool(PoolAction _action, uint256 _amount) internal {
         if (!delayModule.isModuleEnabled(address(this))) revert VirtualModuleNotEnabled();
         if (_isCleanQueueRequired()) delayModule.skipExpired();
         if (_isExternalTxQueued()) revert ExternalTxIsQueued();
@@ -314,10 +333,6 @@ contract RoboSaverVirtualModule {
             _executeQueuedTx();
         }
     }
-
-    /*//////////////////////////////////////////////////////////////////////////
-                                   INTERNAL METHODS
-    //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice Close the pool position by withdrawing all to $EURe
     /// @param _minAmountOut The minimum amount of $EURe to withdraw from the pool

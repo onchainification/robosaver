@@ -28,13 +28,12 @@ contract TopupTest is BaseFixture {
         uint256 initialBptBal = IERC20(BPT_STEUR_EURE).balanceOf(address(safe));
         uint256 initialEureBal = IERC20(EURE).balanceOf(address(safe));
 
-        (bool canExec, bytes memory execPayload) = roboModule.checker();
-        (bytes memory dataWithoutSelector, bytes4 selector) = _extractEncodeDataWithoutSelector(execPayload);
+        (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
         (RoboSaverVirtualModule.PoolAction _action, uint256 _deficit) =
-            abi.decode(dataWithoutSelector, (RoboSaverVirtualModule.PoolAction, uint256));
+            abi.decode(execPayload, (RoboSaverVirtualModule.PoolAction, uint256));
 
         assertTrue(canExec, "CanExec: not executable");
-        assertEq(selector, ADJUST_POOL_SELECTOR, "Selector: not adjust pool (0xba2f0056)");
+        // assertEq(selector, ADJUST_POOL_SELECTOR, "Selector: not adjust pool (0xba2f0056)");
         assertEq(
             uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.WITHDRAW), "PoolAction: not withdrawal from pool"
         );
@@ -45,8 +44,8 @@ contract TopupTest is BaseFixture {
         // listen for `AdjustPoolTxDataQueued` event to capture the payload
         vm.recordLogs();
 
-        vm.prank(KEEPER);
-        roboModule.adjustPool(_action, _deficit);
+        vm.prank(address(CL_REGISTRY));
+        roboModule.performUpkeep(execPayload);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(
@@ -64,8 +63,8 @@ contract TopupTest is BaseFixture {
 
         _assertPreStorageValuesNextTxExec(address(roboModule.BALANCER_VAULT()), abi.decode(entries[1].data, (bytes)));
 
-        vm.prank(KEEPER);
-        roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0);
+        vm.prank(address(CL_REGISTRY));
+        roboModule.performUpkeep(abi.encode(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
 
         // ensure default values at `queuedTx` after execution
         _assertPostDefaultValuesNextTxExec();
