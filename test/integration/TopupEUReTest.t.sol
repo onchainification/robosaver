@@ -3,13 +3,13 @@ pragma solidity ^0.8.25;
 
 import "forge-std/Test.sol";
 
-import {BaseFixture} from "./BaseFixture.sol";
+import {BaseFixture} from "../BaseFixture.sol";
 
 import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
 
-import {Enum} from "../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
+import {Enum} from "../../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 
-import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
+import {RoboSaverVirtualModule} from "../../src/RoboSaverVirtualModule.sol";
 
 contract TopupTest is BaseFixture {
     // @note ref for error codes: https://docs.balancer.fi/reference/contracts/error-codes.html#error-codes
