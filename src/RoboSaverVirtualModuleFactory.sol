@@ -62,11 +62,15 @@ contract RoboSaverVirtualModuleFactory {
         // uses `CARD` address has to helps pre-determining the address of the virtual module given the salt
         address virtualModule = address(
             new RoboSaverVirtualModule{salt: keccak256(abi.encodePacked(msg.sender))}(
-                _delayModule, _roleModule, _buffer, _slippage
+                address(this), _delayModule, _roleModule, _buffer, _slippage
             )
         );
 
         uint256 upkeepId = _registerRoboSaverVirtualModule(virtualModule);
+
+        // extracts forwarder address & sets keeper
+        address keeper = CL_REGISTRY.getForwarder(upkeepId);
+        RoboSaverVirtualModule(virtualModule).setKeeper(keeper);
 
         emit RoboSaverVirtualModuleCreated(virtualModule, msg.sender, upkeepId, block.timestamp);
     }
@@ -77,12 +81,12 @@ contract RoboSaverVirtualModuleFactory {
 
     /// @notice Registers the virtual module in the Chainlink Keeper Registry
     /// @param _virtualModule The address of the virtual module to be registered
-    function _registerRoboSaverVirtualModule(address _virtualModule) internal returns (uint256 upkeepID_) {
+    function _registerRoboSaverVirtualModule(address _virtualModule) internal returns (uint256 upkeepId_) {
         IKeeperRegistrar.RegistrationParams memory registrationParams = IKeeperRegistrar.RegistrationParams({
             name: string.concat(RoboSaverVirtualModule(_virtualModule).name(), "-", _addressToString(msg.sender)),
             encryptedEmail: "",
             upkeepContract: _virtualModule,
-            gasLimit: 2_000_000,
+            gasLimit: 2_000_000, // @todo optimise from the gas logs the right value. perhaps we are overshooting
             adminAddress: address(this), // @note the factory is the admin
             triggerType: 0,
             checkData: "",
@@ -91,10 +95,10 @@ contract RoboSaverVirtualModuleFactory {
             amount: 5e18 // @note dummy value for now
         });
 
-        upkeepID_ = CL_REGISTRAR.registerUpkeep(registrationParams);
-        if (upkeepID_ == 0) revert UpkeepZero();
+        upkeepId_ = CL_REGISTRAR.registerUpkeep(registrationParams);
+        if (upkeepId_ == 0) revert UpkeepZero();
 
-        virtualModules[msg.sender] = VirtualModuleDetails({virtualModuleAddress: _virtualModule, upkeepId: upkeepID_});
+        virtualModules[msg.sender] = VirtualModuleDetails({virtualModuleAddress: _virtualModule, upkeepId: upkeepId_});
     }
 
     /// @notice Converts an address to a string

@@ -16,6 +16,7 @@ import "@balancer-v2/interfaces/contracts/pool-stable/StablePoolUserData.sol";
 import {IKeeperRegistryMaster} from "../src/interfaces/chainlink/IKeeperRegistryMaster.sol";
 import {IKeeperRegistrar} from "../src/interfaces/chainlink/IKeeperRegistrar.sol";
 
+import {RoboSaverVirtualModuleFactory} from "../src/RoboSaverVirtualModuleFactory.sol";
 import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
 
 import {ISafeProxyFactory} from "@gnosispay-kit/interfaces/ISafeProxyFactory.sol";
@@ -80,7 +81,8 @@ contract BaseFixture is Test {
 
     ISafe safe;
 
-    // robosaver module
+    // robosaver module & factory
+    RoboSaverVirtualModuleFactory roboModuleFactory;
     RoboSaverVirtualModule roboModule;
 
     // Keeper address (forwarder): https://docs.chain.link/chainlink-automation/guides/forwarder#securing-your-upkeep
@@ -113,7 +115,10 @@ contract BaseFixture is Test {
 
         bouncerContract = new Bouncer(address(safe), address(rolesModule), SET_ALLOWANCE_SELECTOR);
 
-        roboModule = new RoboSaverVirtualModule(address(delayModule), address(rolesModule), EURE_BUFFER, SLIPPAGE);
+        roboModuleFactory = new RoboSaverVirtualModuleFactory();
+        roboModule = new RoboSaverVirtualModule(
+            address(roboModuleFactory), address(delayModule), address(rolesModule), EURE_BUFFER, SLIPPAGE
+        );
 
         // enable robo module in the delay & gnosis safe for tests flow
         vm.startPrank(address(safe));

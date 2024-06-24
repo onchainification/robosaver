@@ -71,6 +71,7 @@ contract RoboSaverVirtualModule is
     /*//////////////////////////////////////////////////////////////////////////
                                    PUBLIC STORAGE
     //////////////////////////////////////////////////////////////////////////*/
+    address factory;
 
     IDelayModifier public delayModule;
     IRolesModifier public rolesModule;
@@ -149,6 +150,7 @@ contract RoboSaverVirtualModule is
 
     error NotKeeper(address agent);
     error NotAdmin(address agent);
+    error NorAdminNeitherFactory(address agent);
 
     error ZeroAddressValue();
     error ZeroUintValue();
@@ -174,11 +176,18 @@ contract RoboSaverVirtualModule is
         _;
     }
 
+    /// @notice Enforce that the function is called by the admin or the factory only
+    modifier onlyAdminAndFactory() {
+        if (msg.sender != CARD || msg.sender != factory) revert NorAdminNeitherFactory(msg.sender);
+        _;
+    }
+
     /*//////////////////////////////////////////////////////////////////////////
                                      CONSTRUCTOR
     //////////////////////////////////////////////////////////////////////////*/
 
-    constructor(address _delayModule, address _rolesModule, uint256 _buffer, uint16 _slippage) {
+    constructor(address _factory, address _delayModule, address _rolesModule, uint256 _buffer, uint16 _slippage) {
+        factory = _factory;
         delayModule = IDelayModifier(_delayModule);
         rolesModule = IRolesModifier(_rolesModule);
         buffer = _buffer;
@@ -223,7 +232,7 @@ contract RoboSaverVirtualModule is
 
     /// @notice Assigns a new keeper address
     /// @param _keeper The address of the new keeper
-    function setKeeper(address _keeper) external onlyAdmin {
+    function setKeeper(address _keeper) external onlyAdminAndFactory {
         if (_keeper == address(0)) revert ZeroAddressValue();
 
         address oldKeeper = keeper;
