@@ -129,7 +129,7 @@ contract BaseFixture is Test {
         IERC20(LINK).approve(address(CL_REGISTRAR), LINK_FOR_TASK_TOP_UP);
 
         IKeeperRegistrar.RegistrationParams memory registrationParams = IKeeperRegistrar.RegistrationParams({
-            name: string.concat(roboModule.name(), _addressToString(address(safe))),
+            name: string.concat(roboModule.name(), "-", _addressToString(address(safe))),
             encryptedEmail: "",
             upkeepContract: address(roboModule),
             gasLimit: 2_000_000,
