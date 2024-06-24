@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {BaseFixture} from "./BaseFixture.sol";
+import {BaseFixture} from "../BaseFixture.sol";
 
-import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
+import {RoboSaverVirtualModule} from "../../src/RoboSaverVirtualModule.sol";
 
 contract AdjustPoolTest is BaseFixture {
     function test_ReverWhen_NoKeeper() public {

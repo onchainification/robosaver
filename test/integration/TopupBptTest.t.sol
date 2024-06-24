@@ -3,17 +3,17 @@ pragma solidity ^0.8.25;
 
 import "forge-std/Test.sol";
 
-import {BaseFixture} from "./BaseFixture.sol";
+import {BaseFixture} from "../BaseFixture.sol";
 
 import {IMulticall} from "@gnosispay-kit/interfaces/IMulticall.sol";
 
 import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
 
-import {Enum} from "../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
+import {Enum} from "../../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 
-import {IEURe} from "../src/interfaces/eure/IEURe.sol";
+import {IEURe} from "../../src/interfaces/eure/IEURe.sol";
 
-import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
+import {RoboSaverVirtualModule} from "../../src/RoboSaverVirtualModule.sol";
 
 contract TopupBptTest is BaseFixture {
     function testTopupBpt() public {

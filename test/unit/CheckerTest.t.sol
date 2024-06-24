@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {BaseFixture} from "./BaseFixture.sol";
+import {BaseFixture} from "../BaseFixture.sol";
 
 import {IERC20} from "@gnosispay-kit/interfaces/IERC20.sol";
 
-import {Enum} from "../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
+import {Enum} from "../../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 
-import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
+import {RoboSaverVirtualModule} from "../../src/RoboSaverVirtualModule.sol";
 
 contract CheckerTest is BaseFixture {
     function testChecker_When_TopupIsRequired() public {
