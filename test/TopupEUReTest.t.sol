@@ -33,7 +33,6 @@ contract TopupTest is BaseFixture {
             abi.decode(execPayload, (RoboSaverVirtualModule.PoolAction, uint256));
 
         assertTrue(canExec, "CanExec: not executable");
-        // assertEq(selector, ADJUST_POOL_SELECTOR, "Selector: not adjust pool (0xba2f0056)");
         assertEq(
             uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.WITHDRAW), "PoolAction: not withdrawal from pool"
         );

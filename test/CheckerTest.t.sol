@@ -21,10 +21,16 @@ contract CheckerTest is BaseFixture {
 
         delayModule.executeNextTx(EURE, 0, payload, Enum.Operation.Call);
 
-        (bool canExec,) = roboModule.checkUpkeep("");
-
+        (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
+        (RoboSaverVirtualModule.PoolAction _action, uint256 _amount) =
+            abi.decode(execPayload, (RoboSaverVirtualModule.PoolAction, uint256));
         assertTrue(canExec, "CanExec: not executable");
-        // assertEq(bytes4(execPayload), ADJUST_POOL_SELECTOR, "Selector: not adjust pool (0xba2f0056)");
+        assertEq(
+            uint8(_action),
+            uint8(RoboSaverVirtualModule.PoolAction.WITHDRAW),
+            "PoolAction: not withdrawing from the pool"
+        );
+        assertGt(_amount, 0);
     }
 
     function testChecker_When_TxIsOnQueue() public {
