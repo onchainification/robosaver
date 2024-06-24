@@ -116,6 +116,10 @@ contract RoboSaverVirtualModule is
     /// @param timestamp The timestamp of the transaction
     event PoolDepositQueued(address indexed safe, uint256 amount, uint256 timestamp);
 
+    /// @notice Emitted when a transaction to unstake and claim all pending rewards from the Aura gauge has been queued up
+    /// @param safe The address of the card
+    /// @param amount The amount of bpt to unstake
+    /// @param timestamp The timestamp of the transaction
     event GaugeUnstakeAndClaimQueued(address indexed safe, uint256 amount, uint256 timestamp);
 
     /// @notice Emitted when an adjustment pool transaction is being queued up
