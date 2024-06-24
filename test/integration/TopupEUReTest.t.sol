@@ -3,13 +3,13 @@ pragma solidity ^0.8.25;
 
 import "forge-std/Test.sol";
 
-import {BaseFixture} from "./BaseFixture.sol";
+import {BaseFixture} from "../BaseFixture.sol";
 
 import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
 
-import {Enum} from "../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
+import {Enum} from "../../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 
-import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
+import {RoboSaverVirtualModule} from "../../src/RoboSaverVirtualModule.sol";
 
 contract TopupTest is BaseFixture {
     // @note ref for error codes: https://docs.balancer.fi/reference/contracts/error-codes.html#error-codes
@@ -28,13 +28,11 @@ contract TopupTest is BaseFixture {
         uint256 initialBptBal = IERC20(BPT_STEUR_EURE).balanceOf(address(safe));
         uint256 initialEureBal = IERC20(EURE).balanceOf(address(safe));
 
-        (bool canExec, bytes memory execPayload) = roboModule.checker();
-        (bytes memory dataWithoutSelector, bytes4 selector) = _extractEncodeDataWithoutSelector(execPayload);
+        (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
         (RoboSaverVirtualModule.PoolAction _action, uint256 _deficit) =
-            abi.decode(dataWithoutSelector, (RoboSaverVirtualModule.PoolAction, uint256));
+            abi.decode(execPayload, (RoboSaverVirtualModule.PoolAction, uint256));
 
         assertTrue(canExec, "CanExec: not executable");
-        assertEq(selector, ADJUST_POOL_SELECTOR, "Selector: not adjust pool (0xba2f0056)");
         assertEq(
             uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.WITHDRAW), "PoolAction: not withdrawal from pool"
         );
@@ -45,8 +43,8 @@ contract TopupTest is BaseFixture {
         // listen for `AdjustPoolTxDataQueued` event to capture the payload
         vm.recordLogs();
 
-        vm.prank(KEEPER);
-        roboModule.adjustPool(_action, _deficit);
+        vm.prank(keeper);
+        roboModule.performUpkeep(execPayload);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(
@@ -64,8 +62,8 @@ contract TopupTest is BaseFixture {
 
         _assertPreStorageValuesNextTxExec(address(roboModule.BALANCER_VAULT()), abi.decode(entries[1].data, (bytes)));
 
-        vm.prank(KEEPER);
-        roboModule.adjustPool(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0);
+        vm.prank(keeper);
+        roboModule.performUpkeep(abi.encode(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
 
         // ensure default values at `queuedTx` after execution
         _assertPostDefaultValuesNextTxExec();
