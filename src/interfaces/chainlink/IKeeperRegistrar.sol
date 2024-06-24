@@ -1,17 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.4;
 
 interface IKeeperRegistrar {
+    type AutoApproveType is uint8;
+
     struct InitialTriggerConfig {
         uint8 triggerType;
-        uint8 autoApproveType;
+        AutoApproveType autoApproveType;
         uint32 autoApproveMaxAllowed;
-    }
-
-    struct TriggerRegistrationStorage {
-        uint8 autoApproveType;
-        uint32 autoApproveMaxAllowed;
-        uint32 approvedCount;
     }
 
     struct RegistrationParams {
@@ -25,6 +21,12 @@ interface IKeeperRegistrar {
         bytes triggerConfig;
         bytes offchainConfig;
         uint96 amount;
+    }
+
+    struct TriggerRegistrationStorage {
+        AutoApproveType autoApproveType;
+        uint32 autoApproveMaxAllowed;
+        uint32 approvedCount;
     }
 
     error AmountMismatch();
@@ -59,12 +61,10 @@ interface IKeeperRegistrar {
         bytes checkData,
         uint96 amount
     );
-    event TriggerConfigSet(uint8 triggerType, uint8 autoApproveType, uint32 autoApproveMaxAllowed);
+    event TriggerConfigSet(uint8 triggerType, AutoApproveType autoApproveType, uint32 autoApproveMaxAllowed);
 
     function LINK() external view returns (address);
-
     function acceptOwnership() external;
-
     function approve(
         string memory name,
         address upkeepContract,
@@ -76,24 +76,16 @@ interface IKeeperRegistrar {
         bytes memory offchainConfig,
         bytes32 hash
     ) external;
-
     function cancel(bytes32 hash) external;
-
     function getAutoApproveAllowedSender(address senderAddress) external view returns (bool);
-
     function getConfig() external view returns (address keeperRegistry, uint256 minLINKJuels);
-
     function getPendingRequest(bytes32 hash) external view returns (address, uint96);
-
     function getTriggerRegistrationDetails(uint8 triggerType)
         external
         view
         returns (TriggerRegistrationStorage memory);
-
     function onTokenTransfer(address sender, uint256 amount, bytes memory data) external;
-
     function owner() external view returns (address);
-
     function register(
         string memory name,
         bytes memory encryptedEmail,
@@ -107,16 +99,11 @@ interface IKeeperRegistrar {
         uint96 amount,
         address sender
     ) external;
-
     function registerUpkeep(RegistrationParams memory requestParams) external returns (uint256);
-
     function setAutoApproveAllowedSender(address senderAddress, bool allowed) external;
-
     function setConfig(address keeperRegistry, uint96 minLINKJuels) external;
-
-    function setTriggerConfig(uint8 triggerType, uint8 autoApproveType, uint32 autoApproveMaxAllowed) external;
-
+    function setTriggerConfig(uint8 triggerType, AutoApproveType autoApproveType, uint32 autoApproveMaxAllowed)
+        external;
     function transferOwnership(address to) external;
-
     function typeAndVersion() external view returns (string memory);
 }
