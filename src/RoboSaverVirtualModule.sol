@@ -12,7 +12,7 @@ import {IAsset} from "@balancer-v2/interfaces/contracts/vault/IAsset.sol";
 import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
 import "@balancer-v2/interfaces/contracts/pool-stable/StablePoolUserData.sol";
 
-import {KeeperCompatibleInterface} from "./interfaces/chainlink/KeeperCompatibleInterface.sol";
+import {KeeperCompatibleInterface} from "@chainlink/automation/interfaces/KeeperCompatibleInterface.sol";
 
 /// @title RoboSaver: turn your Gnosis Pay card into an automated savings account!
 /// @author onchainification.xyz

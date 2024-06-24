@@ -13,7 +13,7 @@ import "@balancer-v2/interfaces/contracts/vault/IVault.sol"; // contains interna
 import {IBalancerQueries} from "@balancer-v2/interfaces/contracts/standalone-utils/IBalancerQueries.sol";
 import "@balancer-v2/interfaces/contracts/pool-stable/StablePoolUserData.sol";
 
-import {IKeeperRegistryMaster} from "../src/interfaces/chainlink/IKeeperRegistryMaster.sol";
+import {IKeeperRegistryMaster} from "@chainlink/automation/interfaces/v2_1/IKeeperRegistryMaster.sol";
 import {IKeeperRegistrar} from "../src/interfaces/chainlink/IKeeperRegistrar.sol";
 
 import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
