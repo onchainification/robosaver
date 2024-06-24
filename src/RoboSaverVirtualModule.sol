@@ -330,7 +330,7 @@ contract RoboSaverVirtualModule is
         if (_isExternalTxQueued()) revert ExternalTxIsQueued();
 
         if (_action == PoolAction.WITHDRAW) {
-            if BPT_STEUR_EURE.balanceOf(CARD) == 0 {
+            if (BPT_STEUR_EURE.balanceOf(CARD) == 0) {
                 _unstakeAndClaim();
             } else {
                 _poolWithdrawal(_amount);
@@ -338,7 +338,7 @@ contract RoboSaverVirtualModule is
         } else if (_action == PoolAction.DEPOSIT) {
             _poolDeposit(_amount);
         } else if (_action == PoolAction.CLOSE) {
-            if BPT_STEUR_EURE.balanceOf(CARD) == 0 {
+            if (BPT_STEUR_EURE.balanceOf(CARD) == 0) {
                 _unstakeAndClaim();
             } else {
                 _poolClose(_amount);
@@ -439,13 +439,8 @@ contract RoboSaverVirtualModule is
 
     /// @notice Unstake and claim all pending rewards from the Aura gauge
     function _unstakeAndClaim() internal {
-        gaugeBalance = IERC20(AURA_GAUGE_STEUR_EURE).balanceOf(address(this);
-        _queueTx(
-            AURA_GAUGE_STEUR_EURE,
-            abi.encodeWithSignature(
-                "withdrawAndUnwrap(uint256,bool)", gaugeBalance), true
-            )
-        );
+        uint256 gaugeBalance = IERC20(AURA_GAUGE_STEUR_EURE).balanceOf(address(this));
+        _queueTx(AURA_GAUGE_STEUR_EURE, abi.encodeWithSignature("withdrawAndUnwrap(uint256,bool)", gaugeBalance, true));
 
         emit GaugeUnstakeAndClaimQueued(CARD, gaugeBalance, block.timestamp);
     }
