@@ -116,41 +116,25 @@ contract BaseFixture is Test {
         bouncerContract = new Bouncer(address(safe), address(rolesModule), SET_ALLOWANCE_SELECTOR);
 
         roboModuleFactory = new RoboSaverVirtualModuleFactory();
-        roboModule = new RoboSaverVirtualModule(
-            address(roboModuleFactory), address(delayModule), address(rolesModule), EURE_BUFFER, SLIPPAGE
-        );
+        // fund the factory with LINK for task top up
+        deal(LINK, address(roboModuleFactory), LINK_FOR_TASK_TOP_UP);
 
         // enable robo module in the delay & gnosis safe for tests flow
         vm.startPrank(address(safe));
+
+        // create from factory new robo virtual module
+        roboModuleFactory.createVirtualModule(address(delayModule), address(delayModule), EURE_BUFFER, SLIPPAGE);
+        (address roboModuleAddress, uint256 upkeepId) = roboModuleFactory.virtualModules(address(safe));
+
+        roboModule = RoboSaverVirtualModule(roboModuleAddress);
+        // deduct keeper from the registry and factory upkeep id rerieved from factory storage
+        keeper = CL_REGISTRY.getForwarder(upkeepId);
 
         delayModule.enableModule(address(roboModule));
         delayModule.enableModule(address(safe));
 
         safe.enableModule(address(delayModule));
         safe.enableModule(address(rolesModule));
-
-        // registering the task in CL automation service
-        deal(LINK, address(safe), LINK_FOR_TASK_TOP_UP);
-        IERC20(LINK).approve(address(CL_REGISTRAR), LINK_FOR_TASK_TOP_UP);
-
-        IKeeperRegistrar.RegistrationParams memory registrationParams = IKeeperRegistrar.RegistrationParams({
-            name: string.concat(roboModule.name(), "-", _addressToString(address(safe))),
-            encryptedEmail: "",
-            upkeepContract: address(roboModule),
-            gasLimit: 2_000_000,
-            adminAddress: address(safe),
-            triggerType: 0,
-            checkData: "",
-            triggerConfig: "",
-            offchainConfig: "",
-            amount: LINK_FOR_TASK_TOP_UP
-        });
-
-        uint256 upkeepID = CL_REGISTRAR.registerUpkeep(registrationParams);
-        assertNotEq(upkeepID, 0);
-
-        keeper = CL_REGISTRY.getForwarder(upkeepID);
-        roboModule.setKeeper(keeper);
 
         vm.stopPrank();
 
@@ -176,8 +160,14 @@ contract BaseFixture is Test {
 
         deal(BPT_STEUR_EURE, address(safe), EURE_TO_MINT);
 
+        _labelKeyContracts();
+    }
+
+    /// @dev Labels key contracts for tracing
+    function _labelKeyContracts() internal {
         vm.label(EURE, "EURE");
         vm.label(WETH, "WETH");
+        vm.label(LINK, "LINK");
         vm.label(address(safe), "GNOSIS_SAFE");
         vm.label(address(delayModule), "DELAY_MODULE");
         vm.label(address(bouncerContract), "BOUNCER_CONTRACT");
@@ -185,6 +175,8 @@ contract BaseFixture is Test {
         vm.label(address(roboModule), "ROBO_MODULE");
         vm.label(BPT_STEUR_EURE, "BPT_STEUR_EURE");
         vm.label(address(roboModule.BALANCER_VAULT()), "BALANCER_VAULT");
+        vm.label(address(CL_REGISTRY), "CL_REGISTRY");
+        vm.label(address(CL_REGISTRAR), "CL_REGISTRAR");
     }
 
     function _addressToString(address _addr) internal pure returns (string memory) {
