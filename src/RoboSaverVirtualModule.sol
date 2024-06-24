@@ -112,6 +112,8 @@ contract RoboSaverVirtualModule {
     /// @param timestamp The timestamp of the transaction
     event PoolDepositQueued(address indexed safe, uint256 amount, uint256 timestamp);
 
+    event GaugeUnstakeAndClaimQueued(address indexed safe, uint256 amount, uint256 timestamp);
+
     /// @notice Emitted when an adjustment pool transaction is being queued up
     /// @dev Event is leverage by off-chain service to execute the queued transaction
     /// @param target The address of the target contract
@@ -310,11 +312,19 @@ contract RoboSaverVirtualModule {
         if (_isExternalTxQueued()) revert ExternalTxIsQueued();
 
         if (_action == PoolAction.WITHDRAW) {
-            _poolWithdrawal(_amount);
+            if BPT_STEUR_EURE.balanceOf(CARD) == 0 {
+                _unstakeAndClaim();
+            } else {
+                _poolWithdrawal(_amount);
+            }
         } else if (_action == PoolAction.DEPOSIT) {
             _poolDeposit(_amount);
         } else if (_action == PoolAction.CLOSE) {
-            _poolClose(_amount);
+            if BPT_STEUR_EURE.balanceOf(CARD) == 0 {
+                _unstakeAndClaim();
+            } else {
+                _poolClose(_amount);
+            }
         } else if (_action == PoolAction.EXEC_QUEUE_POOL_ACTION) {
             _executeQueuedTx();
         }
@@ -411,6 +421,19 @@ contract RoboSaverVirtualModule {
         emit PoolDepositQueued(CARD, _surplus, block.timestamp);
 
         return calls_;
+    }
+
+    /// @notice Unstake and claim all pending rewards from the Aura gauge
+    function _unstakeAndClaim() internal {
+        gaugeBalance = IERC20(AURA_GAUGE_STEUR_EURE).balanceOf(address(this);
+        _queueTx(
+            AURA_GAUGE_STEUR_EURE,
+            abi.encodeWithSignature(
+                "withdrawAndUnwrap(uint256,bool)", gaugeBalance), true
+            )
+        );
+
+        emit GaugeUnstakeAndClaimQueued(CARD, gaugeBalance, block.timestamp);
     }
 
     /// @dev Execute the next transaction in the queue using the storage variable `queuedTx`
