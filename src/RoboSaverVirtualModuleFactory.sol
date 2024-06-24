@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IKeeperRegistryMaster} from "./interfaces/chainlink/IKeeperRegistryMaster.sol";
+import {IKeeperRegistryMaster} from "@chainlink/automation/interfaces/v2_1/IKeeperRegistryMaster.sol";
 import {IKeeperRegistrar} from "./interfaces/chainlink/IKeeperRegistrar.sol";
 
 import {RoboSaverVirtualModule} from "./RoboSaverVirtualModule.sol";
