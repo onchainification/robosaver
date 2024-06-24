@@ -357,8 +357,7 @@ contract RoboSaverVirtualModule {
         amountsOut[1] = _deficit;
 
         /// @dev Naive calculation of the `maxBPTAmountIn` based on the bpt rate and slippage %
-        uint256 maxBPTAmountIn =
-            minAmountsOut[EURE_TOKEN_BPT_INDEX] * MAX_BPS * 1e18 / (MAX_BPS - slippage) / BPT_STEUR_EURE.getRate();
+        uint256 maxBPTAmountIn = _deficit * MAX_BPS * 1e18 / (MAX_BPS - slippage) / BPT_STEUR_EURE.getRate();
         bytes memory userData =
             abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn);
 
@@ -402,7 +401,7 @@ contract RoboSaverVirtualModule {
         );
 
         /// @dev Batch all payloads into a multicall
-        IMulticall.Call[] memory calls_ = new IMulticall.Call[](4);
+        IMulticall.Call[] memory calls_ = new IMulticall.Call[](2);
         calls_[0] = IMulticall.Call(address(EURE), approveEurePayload);
         calls_[1] = IMulticall.Call(address(AURA_DEPOSITOR), depositAndStakePayload);
         bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
