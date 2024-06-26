@@ -11,6 +11,7 @@ import {IDelayModifier} from "./interfaces/delayModule/IDelayModifier.sol";
 import {IAsset} from "@balancer-v2/interfaces/contracts/vault/IAsset.sol";
 import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
 import "@balancer-v2/interfaces/contracts/pool-stable/StablePoolUserData.sol";
+import "@balancer-v2/interfaces/contracts/solidity-utils/misc/IERC4626.sol";
 
 import {KeeperCompatibleInterface} from "@chainlink/automation/interfaces/KeeperCompatibleInterface.sol";
 
@@ -33,6 +34,7 @@ contract RoboSaverVirtualModule is
         WITHDRAW,
         DEPOSIT,
         CLOSE,
+        STAKE,
         EXEC_QUEUE_POOL_ACTION
     }
 
@@ -58,8 +60,6 @@ contract RoboSaverVirtualModule is
 
     address public constant MULTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
     address public immutable CARD;
-    // @todo can also be retrieved via 0x98Ef32edd24e2c92525E59afc4475C1242a30184.poolInfo(22)?
-    address public constant AURA_GAUGE_STEUR_EURE = 0x408883E983695DeC78CF66480e6eFeF907a73c21;
 
     IVault public constant BALANCER_VAULT = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
@@ -72,6 +72,7 @@ contract RoboSaverVirtualModule is
     IRewardPoolDepositWrapper constant AURA_DEPOSITOR =
         IRewardPoolDepositWrapper(0x0Fec3d212BcC29eF3E505B555D7a7343DF0B7F76);
     IComposableStablePool immutable BPT_STEUR_EURE;
+    IERC4626 immutable AURA_GAUGE_STEUR_EURE = IERC4626(0x408883E983695DeC78CF66480e6eFeF907a73c21);
 
     /*//////////////////////////////////////////////////////////////////////////
                                    PUBLIC STORAGE
@@ -289,17 +290,23 @@ contract RoboSaverVirtualModule is
             return (true, abi.encode(PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
         }
 
-        uint256 balance = EURE.balanceOf(CARD);
+        /// @dev Any unstaked BPT should be staked first; rest of the logic assumes all $EURe is staked or in the card
+        uint256 bptBalance = BPT_STEUR_EURE.balanceOf(CARD);
+        if (bptBalance > 0) {
+            return (true, abi.encode(PoolAction.STAKE));
+        }
 
+        uint256 balance = EURE.balanceOf(CARD);
         (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
         if (balance < dailyAllowance) {
             /// @notice there is a deficit; we need to withdraw from the pool
-            uint256 bptBalance = BPT_STEUR_EURE.balanceOf(CARD);
-            if (bptBalance == 0) return (false, bytes("No BPT balance on the card"));
+            uint256 stakedBptBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
+            if (stakedBptBalance == 0) return (false, bytes("No staked BPT balance on the card"));
 
             uint256 deficit = dailyAllowance - balance + buffer;
-            uint256 withdrawableEure = bptBalance * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
+            uint256 withdrawableEure =
+                stakedBptBalance * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
             if (withdrawableEure < deficit) {
                 return (true, abi.encode(PoolAction.CLOSE, withdrawableEure));
             } else {
@@ -334,11 +341,7 @@ contract RoboSaverVirtualModule is
         if (_isExternalTxQueued()) revert ExternalTxIsQueued();
 
         if (_action == PoolAction.WITHDRAW) {
-            if (BPT_STEUR_EURE.balanceOf(CARD) == 0) {
-                _unstakeAndClaim();
-            } else {
-                _poolWithdrawal(_amount);
-            }
+            _poolWithdrawal(_amount);
         } else if (_action == PoolAction.DEPOSIT) {
             _poolDeposit(_amount);
         } else if (_action == PoolAction.CLOSE) {
@@ -347,6 +350,8 @@ contract RoboSaverVirtualModule is
             } else {
                 _poolClose(_amount);
             }
+        } else if (_action == PoolAction.STAKE) {
+            // @todo
         } else if (_action == PoolAction.EXEC_QUEUE_POOL_ACTION) {
             _executeQueuedTx();
         }
@@ -377,6 +382,12 @@ contract RoboSaverVirtualModule is
     /// @param _deficit The amount of $EURe to withdraw from the pool
     /// @return request_ The exit pool request as per Balancer's interface
     function _poolWithdrawal(uint256 _deficit) internal returns (IVault.ExitPoolRequest memory request_) {
+        /// @dev Payload 1: Unstake and claim all pending rewards from the Aura gauge
+        uint256 maxBPTAmountIn = _deficit * MAX_BPS * 1e18 / (MAX_BPS - slippage) / BPT_STEUR_EURE.getRate();
+        bytes memory unstakeAndClaimPayload =
+            abi.encodeWithSignature("withdrawAndUnwrap(uint256,bool)", maxBPTAmountIn, true);
+
+        /// @dev Payload 2: Withdraw the necessary $EURe from the pool
         uint256[] memory minAmountsOut = new uint256[](3);
         minAmountsOut[EURE_TOKEN_BPT_INDEX] = _deficit;
 
@@ -385,7 +396,6 @@ contract RoboSaverVirtualModule is
         amountsOut[1] = _deficit;
 
         /// @dev Naive calculation of the `maxBPTAmountIn` based on the bpt rate and slippage %
-        uint256 maxBPTAmountIn = _deficit * MAX_BPS * 1e18 / (MAX_BPS - slippage) / BPT_STEUR_EURE.getRate();
         bytes memory userData =
             abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn);
 
@@ -393,7 +403,14 @@ contract RoboSaverVirtualModule is
         request_ = IVault.ExitPoolRequest(poolAssets, minAmountsOut, userData, false);
         bytes memory exitPoolPayload =
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
-        _queueTx(address(BALANCER_VAULT), exitPoolPayload);
+
+        /// @dev Batch all payloads into a multicall
+        IMulticall.Call[] memory calls_ = new IMulticall.Call[](2);
+        calls_[0] = IMulticall.Call(address(AURA_GAUGE_STEUR_EURE), unstakeAndClaimPayload);
+        calls_[1] = IMulticall.Call(address(BALANCER_VAULT), exitPoolPayload);
+        bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
+
+        _queueTx(MULTICALL3, multicallPayload);
 
         emit PoolWithdrawalQueued(CARD, _deficit, block.timestamp);
     }
@@ -444,7 +461,10 @@ contract RoboSaverVirtualModule is
     /// @notice Unstake and claim all pending rewards from the Aura gauge
     function _unstakeAndClaim() internal {
         uint256 gaugeBalance = IERC20(AURA_GAUGE_STEUR_EURE).balanceOf(address(this));
-        _queueTx(AURA_GAUGE_STEUR_EURE, abi.encodeWithSignature("withdrawAndUnwrap(uint256,bool)", gaugeBalance, true));
+        _queueTx(
+            address(AURA_GAUGE_STEUR_EURE),
+            abi.encodeWithSignature("withdrawAndUnwrap(uint256,bool)", gaugeBalance, true)
+        );
 
         emit GaugeUnstakeAndClaimQueued(CARD, gaugeBalance, block.timestamp);
     }

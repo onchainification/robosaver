@@ -62,7 +62,7 @@ contract CheckerTest is BaseFixture {
         (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
         vm.clearMockedCalls();
         assertFalse(canExec);
-        assertEq(execPayload, bytes("No BPT balance on the card"));
+        assertEq(execPayload, bytes("No staked BPT balance on the card"));
     }
 
     function testChecker_When_internalTxIsQueued() public {
