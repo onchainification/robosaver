@@ -68,11 +68,11 @@ contract RoboSaverVirtualModule is
 
     IComposableStablePool immutable BPT_STEUR_EURE;
 
+    address public immutable FACTORY;
+
     /*//////////////////////////////////////////////////////////////////////////
                                    PUBLIC STORAGE
     //////////////////////////////////////////////////////////////////////////*/
-    address public factory;
-
     IDelayModifier public delayModule;
     IRolesModifier public rolesModule;
 
@@ -178,7 +178,7 @@ contract RoboSaverVirtualModule is
 
     /// @notice Enforce that the function is called by the admin or the factory only
     modifier onlyAdminAndFactory() {
-        if (msg.sender != CARD && msg.sender != factory) revert NorAdminNeitherFactory(msg.sender);
+        if (msg.sender != CARD && msg.sender != FACTORY) revert NorAdminNeitherFactory(msg.sender);
         _;
     }
 
@@ -187,7 +187,8 @@ contract RoboSaverVirtualModule is
     //////////////////////////////////////////////////////////////////////////*/
 
     constructor(address _factory, address _delayModule, address _rolesModule, uint256 _buffer, uint16 _slippage) {
-        factory = _factory;
+        FACTORY = _factory;
+
         delayModule = IDelayModifier(_delayModule);
         rolesModule = IRolesModifier(_rolesModule);
         buffer = _buffer;
