@@ -71,7 +71,7 @@ contract RoboSaverVirtualModule is
     /*//////////////////////////////////////////////////////////////////////////
                                    PUBLIC STORAGE
     //////////////////////////////////////////////////////////////////////////*/
-    address factory;
+    address public factory;
 
     IDelayModifier public delayModule;
     IRolesModifier public rolesModule;
