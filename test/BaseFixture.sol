@@ -123,7 +123,7 @@ contract BaseFixture is Test {
         vm.startPrank(address(safe));
 
         // create from factory new robo virtual module
-        roboModuleFactory.createVirtualModule(address(delayModule), address(delayModule), EURE_BUFFER, SLIPPAGE);
+        roboModuleFactory.createVirtualModule(address(delayModule), address(rolesModule), EURE_BUFFER, SLIPPAGE);
         (address roboModuleAddress, uint256 upkeepId) = roboModuleFactory.virtualModules(address(safe));
 
         roboModule = RoboSaverVirtualModule(roboModuleAddress);
