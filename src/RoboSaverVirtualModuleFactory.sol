@@ -55,10 +55,10 @@ contract RoboSaverVirtualModuleFactory {
 
     /// @notice Creates a virtual module for a card
     /// @param _delayModule The address of the delay module
-    /// @param _roleModule The address of the role module
+    /// @param _rolesModule The address of the roles module
     /// @param _buffer The buffer for the virtual module (configurable)
     /// @param _slippage The slippage for the virtual module (configurable)
-    function createVirtualModule(address _delayModule, address _roleModule, uint256 _buffer, uint16 _slippage)
+    function createVirtualModule(address _delayModule, address _rolesModule, uint256 _buffer, uint16 _slippage)
         external
     {
         // @todo sanity checks on the inputs!
@@ -66,7 +66,7 @@ contract RoboSaverVirtualModuleFactory {
         // uses `CARD` address has to helps pre-determining the address of the virtual module given the salt
         address virtualModule = address(
             new RoboSaverVirtualModule{salt: keccak256(abi.encodePacked(msg.sender))}(
-                address(this), _delayModule, _roleModule, _buffer, _slippage
+                address(this), _delayModule, _rolesModule, _buffer, _slippage
             )
         );
 
