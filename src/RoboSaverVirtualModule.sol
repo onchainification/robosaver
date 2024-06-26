@@ -150,7 +150,7 @@ contract RoboSaverVirtualModule is
 
     error NotKeeper(address agent);
     error NotAdmin(address agent);
-    error NorAdminNeitherFactory(address agent);
+    error NeitherAdminNorFactory(address agent);
 
     error ZeroAddressValue();
     error ZeroUintValue();
@@ -178,7 +178,7 @@ contract RoboSaverVirtualModule is
 
     /// @notice Enforce that the function is called by the admin or the factory only
     modifier onlyAdminOrFactory() {
-        if (msg.sender != CARD && msg.sender != FACTORY) revert NorAdminNeitherFactory(msg.sender);
+        if (msg.sender != CARD && msg.sender != FACTORY) revert NeitherAdminNorFactory(msg.sender);
         _;
     }
 
