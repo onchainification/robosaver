@@ -166,18 +166,30 @@ contract BaseFixture is Test {
 
     /// @dev Labels key contracts for tracing
     function _labelKeyContracts() internal {
+        vm.label(address(safe), "GNOSIS_SAFE");
+        // robosaver module factory
+        vm.label(address(roboModuleFactory), "ROBO_MODULE_FACTORY");
+        // tokens
         vm.label(EURE, "EURE");
         vm.label(WETH, "WETH");
         vm.label(LINK, "LINK");
-        vm.label(address(safe), "GNOSIS_SAFE");
+        // gnosis pay modules infrastructure
         vm.label(address(delayModule), "DELAY_MODULE");
         vm.label(address(bouncerContract), "BOUNCER_CONTRACT");
         vm.label(address(rolesModule), "ROLES_MODULE");
         vm.label(address(roboModule), "ROBO_MODULE");
+        // balancer
         vm.label(BPT_STEUR_EURE, "BPT_STEUR_EURE");
         vm.label(address(roboModule.BALANCER_VAULT()), "BALANCER_VAULT");
+        // chainlink
         vm.label(address(CL_REGISTRY), "CL_REGISTRY");
         vm.label(address(CL_REGISTRAR), "CL_REGISTRAR");
+    }
+
+    function _getDeterministicAddress(bytes memory bytecode, bytes32 _salt) internal view returns (address) {
+        bytes32 hash = keccak256(abi.encodePacked(bytes1(0xff), address(this), _salt, keccak256(bytecode)));
+
+        return address(uint160(uint256(hash)));
     }
 
     function _addressToString(address _addr) internal pure returns (string memory) {
