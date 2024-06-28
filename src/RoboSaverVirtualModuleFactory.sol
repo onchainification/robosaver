@@ -12,6 +12,9 @@ import {Factory} from "./types/DataTypes.sol";
 
 import {RoboSaverVirtualModule} from "./RoboSaverVirtualModule.sol";
 
+/// @title RoboSaverVirtualModuleFactory
+/// @author onchainification.xyz
+/// @notice Factory contract creates an unique {RoboSaverVirtualModule} per Gnosis Pay card, and registers it in the Chainlink Keeper Registry
 contract RoboSaverVirtualModuleFactory {
     /*//////////////////////////////////////////////////////////////////////////
                                    CONSTANTS
