@@ -166,8 +166,9 @@ contract RoboSaverVirtualModule is
 
         delayModule = IDelayModifier(_delayModule);
         rolesModule = IRolesModifier(_rolesModule);
-        buffer = _buffer;
-        slippage = _slippage;
+
+        _setBuffer(_buffer);
+        _setSlippage(_slippage);
 
         CARD = delayModule.avatar();
 
@@ -220,23 +221,13 @@ contract RoboSaverVirtualModule is
     /// @notice Assigns a new value for the buffer responsible for deciding when there is a surplus
     /// @param _buffer The value of the new buffer
     function setBuffer(uint256 _buffer) external onlyAdmin {
-        if (_buffer == 0) revert ZeroUintValue();
-
-        uint256 oldBuffer = buffer;
-        buffer = _buffer;
-
-        emit SetBuffer(msg.sender, oldBuffer, buffer);
+        _setBuffer(_buffer);
     }
 
     /// @notice Adjust the maximum slippage the user is comfortable with
     /// @param _slippage The value of the new slippage in bps (so 10_000 is 100%)
     function setSlippage(uint16 _slippage) external onlyAdmin {
-        if (_slippage >= MAX_BPS) revert TooHighBps();
-
-        uint16 oldSlippage = slippage;
-        slippage = _slippage;
-
-        emit SetSlippage(msg.sender, oldSlippage, slippage);
+        _setSlippage(_slippage);
     }
 
     /// @notice Check if there is a surplus or deficit of $EURe on the card
@@ -458,5 +449,23 @@ contract RoboSaverVirtualModule is
         ) {
             anyExpiredTxs_ = true;
         }
+    }
+
+    function _setSlippage(uint16 _slippage) internal {
+        if (_slippage >= MAX_BPS) revert TooHighBps();
+
+        uint16 oldSlippage = slippage;
+        slippage = _slippage;
+
+        emit SetSlippage(msg.sender, oldSlippage, slippage);
+    }
+
+    function _setBuffer(uint256 _buffer) internal {
+        if (_buffer == 0) revert ZeroUintValue();
+
+        uint256 oldBuffer = buffer;
+        buffer = _buffer;
+
+        emit SetBuffer(msg.sender, oldBuffer, buffer);
     }
 }

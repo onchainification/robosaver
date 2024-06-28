@@ -5,6 +5,9 @@ import {IERC20} from "@chainlink/vendor/openzeppelin-solidity/v4.8.3/contracts/t
 import {IKeeperRegistryMaster} from "@chainlink/automation/interfaces/v2_1/IKeeperRegistryMaster.sol";
 import {IKeeperRegistrar} from "./interfaces/chainlink/IKeeperRegistrar.sol";
 
+import {IDelayModifier} from "./interfaces/delayModule/IDelayModifier.sol";
+import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
+
 import {Factory} from "./types/DataTypes.sol";
 
 import {RoboSaverVirtualModule} from "./RoboSaverVirtualModule.sol";
@@ -35,6 +38,8 @@ contract RoboSaverVirtualModuleFactory {
     //////////////////////////////////////////////////////////////////////////*/
     error UpkeepZero();
 
+    error CallerNotMatchingAvatar(string moduleName, address caller);
+
     /*//////////////////////////////////////////////////////////////////////////
                                      CONSTRUCTOR
     //////////////////////////////////////////////////////////////////////////*/
@@ -55,7 +60,8 @@ contract RoboSaverVirtualModuleFactory {
     function createVirtualModule(address _delayModule, address _rolesModule, uint256 _buffer, uint16 _slippage)
         external
     {
-        // @todo sanity checks on the inputs!
+        /// @dev verification of `buffer` & `slippage` is done in the constructor of the virtual module
+        _verifyVirtualModuleCreationArgs(_delayModule, _rolesModule);
 
         // uses `msg.sender` as a salt to make the deployed address of the virtual module deterministic
         address virtualModule = address(
@@ -76,6 +82,20 @@ contract RoboSaverVirtualModuleFactory {
     /*//////////////////////////////////////////////////////////////////////////
                                    INTERNAL METHODS
     //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Verifies the arguments passed to the virtual module creation
+    /// @param _delayModule The address of the delay module
+    /// @param _rolesModule The address of the roles module
+    function _verifyVirtualModuleCreationArgs(address _delayModule, address _rolesModule) internal view {
+        // verify that delay module avatar & `msg.sender` matches
+        if (IDelayModifier(_delayModule).avatar() != msg.sender) {
+            revert CallerNotMatchingAvatar("DelayModule", msg.sender);
+        }
+        // verify that the roles module avatar & `msg.sender` matches
+        if (IRolesModifier(_rolesModule).avatar() != msg.sender) {
+            revert CallerNotMatchingAvatar("RolesModule", msg.sender);
+        }
+    }
 
     /// @notice Registers the virtual module in the Chainlink Keeper Registry
     /// @param _virtualModule The address of the virtual module to be registered
