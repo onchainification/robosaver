@@ -150,8 +150,6 @@ contract BaseFixture is Test {
 
         // @note is it neccesary for our setup: assign roles, scope target, scope function?
 
-        // @note pendant of wiring up a keeper service here at some point
-
         vm.prank(SAFE_EOA_SIGNER);
         rolesModule.transferOwnership(address(bouncerContract));
 
@@ -159,6 +157,9 @@ contract BaseFixture is Test {
         IEURe(EURE).mintTo(address(safe), EURE_TO_MINT);
 
         deal(BPT_STEUR_EURE, address(safe), EURE_TO_MINT);
+
+        // assert here constructor action in the {RoboSaverVirtualModuleFactory} for a hit
+        assertEq(IERC20(LINK).allowance(address(roboModuleFactory), address(CL_REGISTRAR)), type(uint256).max);
 
         _labelKeyContracts();
     }
