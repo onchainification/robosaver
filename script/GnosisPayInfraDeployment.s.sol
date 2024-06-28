@@ -86,4 +86,7 @@ contract GnosisPayInfraDeployment is Script {
         // 1. Enable delay & roles modules on the safe (to be exec from the safe)
         // 2. Enable RoboSaverVirtualModule on the delay module (to be exec from the safe)
     }
+
+    // contracts that have this method are excluded by codecov
+    function test() public {}
 }
