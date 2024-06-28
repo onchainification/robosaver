@@ -9,5 +9,6 @@ coverage:
   status:
     project: off
     patch: off
-ignore:
-    - "script" # exclude files in the script directory
+ignore: # exclude these folders from the report
+    - "script"
+    - "test"
