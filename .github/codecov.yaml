@@ -9,3 +9,5 @@ coverage:
   status:
     project: off
     patch: off
+ignore:
+    - "script" # exclude files in the script directory
