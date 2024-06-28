@@ -45,6 +45,7 @@ contract RoboSaverVirtualModuleFactory {
     //////////////////////////////////////////////////////////////////////////*/
 
     constructor() {
+        /// @dev max approval to be able to handle smoothly upkeep creations and top-ups
         LINK.approve(address(CL_REGISTRAR), type(uint256).max);
     }
 
@@ -104,7 +105,7 @@ contract RoboSaverVirtualModuleFactory {
             name: string.concat(RoboSaverVirtualModule(_virtualModule).name(), "-", _addressToString(msg.sender)),
             encryptedEmail: "",
             upkeepContract: _virtualModule,
-            gasLimit: 2_000_000, // @todo optimise from the gas logs the right value. perhaps we are overshooting
+            gasLimit: 2_000_000,
             adminAddress: address(this), // @note the factory is the admin
             triggerType: 0,
             checkData: "",
