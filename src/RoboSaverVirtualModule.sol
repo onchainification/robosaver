@@ -13,39 +13,14 @@ import "@balancer-v2/interfaces/contracts/pool-stable/StablePoolUserData.sol";
 
 import {KeeperCompatibleInterface} from "@chainlink/automation/interfaces/KeeperCompatibleInterface.sol";
 
+import {VirtualModule} from "./types/DataTypes.sol";
+
 /// @title RoboSaver: turn your Gnosis Pay card into an automated savings account!
 /// @author onchainification.xyz
 /// @notice Deposit and withdraw $EURe from your Gnosis Pay card to a liquidity pool
 contract RoboSaverVirtualModule is
     KeeperCompatibleInterface // 1 inherited component
 {
-    /*//////////////////////////////////////////////////////////////////////////
-                                     DATA TYPES
-    //////////////////////////////////////////////////////////////////////////*/
-
-    /// @notice Enum representing the different types of pool actions
-    /// @custom:value0 WITHDRAW Withdraw $EURe from the pool to the card
-    /// @custom:value1 DEPOSIT Deposit $EURe from the card into the pool
-    /// @custom:value2 CLOSE Close the pool position by withdrawing all to $EURe
-    /// @custom:value3 EXEC_QUEUE_POOL_ACTION Execute the queued pool action
-    enum PoolAction {
-        WITHDRAW,
-        DEPOSIT,
-        CLOSE,
-        EXEC_QUEUE_POOL_ACTION
-    }
-
-    /// @notice Struct representing the data needed to execute a queued transaction
-    /// @dev Nonce allows us to determine if the transaction queued originated from this virtual module
-    /// @param nonce The nonce of the queued transaction
-    /// @param target The address of the target contract
-    /// @param payload The payload of the transaction to be executed on the target contract
-    struct QueuedTx {
-        uint256 nonce;
-        address target;
-        bytes payload;
-    }
-
     /*//////////////////////////////////////////////////////////////////////////
                                    CONSTANTS
     //////////////////////////////////////////////////////////////////////////*/
@@ -81,7 +56,7 @@ contract RoboSaverVirtualModule is
     uint16 public slippage;
 
     /// @dev Keeps track of the transaction queued up by the virtual module and allows internally to call `executeNextTx`
-    QueuedTx public queuedTx;
+    VirtualModule.QueuedTx public queuedTx;
 
     /*//////////////////////////////////////////////////////////////////////////
                                   PRIVATE STORAGE
@@ -285,7 +260,7 @@ contract RoboSaverVirtualModule is
         if (queuedTx.nonce != 0) {
             /// @notice check if the transaction is still in cooldown or ready to exec
             if (_isInCoolDown(queuedTx.nonce)) return (false, bytes("Internal transaction in cooldown status"));
-            return (true, abi.encode(PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
+            return (true, abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
         }
 
         uint256 balance = EURE.balanceOf(CARD);
@@ -300,14 +275,14 @@ contract RoboSaverVirtualModule is
             uint256 deficit = dailyAllowance - balance + buffer;
             uint256 withdrawableEure = bptBalance * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
             if (withdrawableEure < deficit) {
-                return (true, abi.encode(PoolAction.CLOSE, withdrawableEure));
+                return (true, abi.encode(VirtualModule.PoolAction.CLOSE, withdrawableEure));
             } else {
-                return (true, abi.encode(PoolAction.WITHDRAW, deficit));
+                return (true, abi.encode(VirtualModule.PoolAction.WITHDRAW, deficit));
             }
         } else if (balance > dailyAllowance + buffer) {
             /// @notice there is a surplus; we need to deposit into the pool
             uint256 surplus = balance - (dailyAllowance + buffer);
-            return (true, abi.encode(PoolAction.DEPOSIT, surplus));
+            return (true, abi.encode(VirtualModule.PoolAction.DEPOSIT, surplus));
         }
 
         /// @notice neither deficit nor surplus; no action needed
@@ -316,7 +291,8 @@ contract RoboSaverVirtualModule is
 
     function performUpkeep(bytes calldata _performData) external override onlyKeeper {
         // decode `_performData`
-        (PoolAction action, uint256 amount) = abi.decode(_performData, (PoolAction, uint256));
+        (VirtualModule.PoolAction action, uint256 amount) =
+            abi.decode(_performData, (VirtualModule.PoolAction, uint256));
         _adjustPool(action, amount);
     }
 
@@ -327,18 +303,18 @@ contract RoboSaverVirtualModule is
     /// @notice Adjust the pool by depositing or withdrawing $EURe
     /// @param _action The action to take: deposit or withdraw
     /// @param _amount The amount of $EURe to deposit or withdraw
-    function _adjustPool(PoolAction _action, uint256 _amount) internal {
+    function _adjustPool(VirtualModule.PoolAction _action, uint256 _amount) internal {
         if (!delayModule.isModuleEnabled(address(this))) revert VirtualModuleNotEnabled();
         if (_isCleanQueueRequired()) delayModule.skipExpired();
         if (_isExternalTxQueued()) revert ExternalTxIsQueued();
 
-        if (_action == PoolAction.WITHDRAW) {
+        if (_action == VirtualModule.PoolAction.WITHDRAW) {
             _poolWithdrawal(_amount);
-        } else if (_action == PoolAction.DEPOSIT) {
+        } else if (_action == VirtualModule.PoolAction.DEPOSIT) {
             _poolDeposit(_amount);
-        } else if (_action == PoolAction.CLOSE) {
+        } else if (_action == VirtualModule.PoolAction.CLOSE) {
             _poolClose(_amount);
-        } else if (_action == PoolAction.EXEC_QUEUE_POOL_ACTION) {
+        } else if (_action == VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION) {
             _executeQueuedTx();
         }
     }
@@ -459,7 +435,7 @@ contract RoboSaverVirtualModule is
             : IDelayModifier.DelayModuleOperation.Call;
         delayModule.execTransactionFromModule(_target, 0, _payload, operation);
         uint256 cachedQueueNonce = delayModule.queueNonce();
-        queuedTx = QueuedTx(cachedQueueNonce, _target, _payload);
+        queuedTx = VirtualModule.QueuedTx(cachedQueueNonce, _target, _payload);
 
         emit AdjustPoolTxDataQueued(_target, _payload, cachedQueueNonce);
     }

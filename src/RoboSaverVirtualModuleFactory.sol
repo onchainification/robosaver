@@ -5,17 +5,11 @@ import {IERC20} from "@chainlink/vendor/openzeppelin-solidity/v4.8.3/contracts/t
 import {IKeeperRegistryMaster} from "@chainlink/automation/interfaces/v2_1/IKeeperRegistryMaster.sol";
 import {IKeeperRegistrar} from "./interfaces/chainlink/IKeeperRegistrar.sol";
 
+import {Factory} from "./types/DataTypes.sol";
+
 import {RoboSaverVirtualModule} from "./RoboSaverVirtualModule.sol";
 
 contract RoboSaverVirtualModuleFactory {
-    /*//////////////////////////////////////////////////////////////////////////
-                                     DATA TYPES
-    //////////////////////////////////////////////////////////////////////////*/
-    struct VirtualModuleDetails {
-        address virtualModuleAddress;
-        uint256 upkeepId;
-    }
-
     /*//////////////////////////////////////////////////////////////////////////
                                    CONSTANTS
     //////////////////////////////////////////////////////////////////////////*/
@@ -29,7 +23,7 @@ contract RoboSaverVirtualModuleFactory {
     //////////////////////////////////////////////////////////////////////////*/
 
     // card -> (module address, upkeep id)
-    mapping(address => VirtualModuleDetails) public virtualModules;
+    mapping(address => Factory.VirtualModuleDetails) public virtualModules;
 
     /*//////////////////////////////////////////////////////////////////////////
                                        EVENTS
@@ -102,7 +96,8 @@ contract RoboSaverVirtualModuleFactory {
         upkeepId_ = CL_REGISTRAR.registerUpkeep(registrationParams);
         if (upkeepId_ == 0) revert UpkeepZero();
 
-        virtualModules[msg.sender] = VirtualModuleDetails({virtualModuleAddress: _virtualModule, upkeepId: upkeepId_});
+        virtualModules[msg.sender] =
+            Factory.VirtualModuleDetails({virtualModuleAddress: _virtualModule, upkeepId: upkeepId_});
     }
 
     /// @notice Converts an address to a string

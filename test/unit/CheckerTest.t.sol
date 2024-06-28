@@ -7,7 +7,7 @@ import {IERC20} from "@gnosispay-kit/interfaces/IERC20.sol";
 
 import {Enum} from "../../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 
-import {RoboSaverVirtualModule} from "../../src/RoboSaverVirtualModule.sol";
+import {VirtualModule} from "../../src/types/DataTypes.sol";
 
 contract CheckerTest is BaseFixture {
     function testChecker_When_TopupIsRequired() public {
@@ -22,14 +22,10 @@ contract CheckerTest is BaseFixture {
         delayModule.executeNextTx(EURE, 0, payload, Enum.Operation.Call);
 
         (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
-        (RoboSaverVirtualModule.PoolAction _action, uint256 _amount) =
-            abi.decode(execPayload, (RoboSaverVirtualModule.PoolAction, uint256));
+        (VirtualModule.PoolAction _action, uint256 _amount) =
+            abi.decode(execPayload, (VirtualModule.PoolAction, uint256));
         assertTrue(canExec, "CanExec: not executable");
-        assertEq(
-            uint8(_action),
-            uint8(RoboSaverVirtualModule.PoolAction.WITHDRAW),
-            "PoolAction: not withdrawing from the pool"
-        );
+        assertEq(uint8(_action), uint8(VirtualModule.PoolAction.WITHDRAW), "PoolAction: not withdrawing from the pool");
         assertGt(_amount, 0);
     }
 
@@ -68,7 +64,7 @@ contract CheckerTest is BaseFixture {
     function testChecker_When_internalTxIsQueued() public {
         // 1. assert that internal tx is being queued and within cooldown
         vm.prank(keeper);
-        roboModule.performUpkeep(abi.encode(RoboSaverVirtualModule.PoolAction.DEPOSIT, 1000));
+        roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.DEPOSIT, 1000));
 
         (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
         assertFalse(canExec);
@@ -87,9 +83,9 @@ contract CheckerTest is BaseFixture {
         (canExec, execPayload) = roboModule.checkUpkeep("");
         assertTrue(canExec);
 
-        (RoboSaverVirtualModule.PoolAction _action, uint256 _amount) =
-            abi.decode(execPayload, (RoboSaverVirtualModule.PoolAction, uint256));
-        assertEq(uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION));
+        (VirtualModule.PoolAction _action, uint256 _amount) =
+            abi.decode(execPayload, (VirtualModule.PoolAction, uint256));
+        assertEq(uint8(_action), uint8(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION));
         assertEq(_amount, 0);
     }
 
