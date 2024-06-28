@@ -63,7 +63,7 @@ contract RoboSaverVirtualModuleFactory {
     {
         // @todo sanity checks on the inputs!
 
-        // uses `CARD` address has to helps pre-determining the address of the virtual module given the salt
+        // uses `msg.sender` as a salt to make the deployed address of the virtual module deterministic
         address virtualModule = address(
             new RoboSaverVirtualModule{salt: keccak256(abi.encodePacked(msg.sender))}(
                 address(this), _delayModule, _rolesModule, _buffer, _slippage
