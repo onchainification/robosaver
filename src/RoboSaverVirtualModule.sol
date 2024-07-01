@@ -447,7 +447,7 @@ contract RoboSaverVirtualModule is
 
     /// @notice Unstake and claim all pending rewards from the Aura gauge
     function _unstakeAndClaim() internal {
-        uint256 gaugeBalance = AURA_GAUGE_STEUR_EURE.balanceOf(address(this));
+        uint256 gaugeBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
         _queueTx(
             address(AURA_GAUGE_STEUR_EURE),
             abi.encodeWithSignature("withdrawAndUnwrap(uint256,bool)", gaugeBalance, true)
