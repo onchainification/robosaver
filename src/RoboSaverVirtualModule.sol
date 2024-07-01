@@ -24,34 +24,6 @@ contract RoboSaverVirtualModule is
     KeeperCompatibleInterface // 1 inherited component
 {
     /*//////////////////////////////////////////////////////////////////////////
-                                     DATA TYPES
-    //////////////////////////////////////////////////////////////////////////*/
-
-    /// @notice Enum representing the different types of pool actions
-    /// @custom:value0 WITHDRAW Withdraw $EURe from the pool to the card
-    /// @custom:value1 DEPOSIT Deposit $EURe from the card into the pool
-    /// @custom:value2 CLOSE Close the pool position by withdrawing all to $EURe
-    /// @custom:value3 EXEC_QUEUE_POOL_ACTION Execute the queued pool action
-    enum PoolAction {
-        WITHDRAW,
-        DEPOSIT,
-        CLOSE,
-        STAKE,
-        EXEC_QUEUE_POOL_ACTION
-    }
-
-    /// @notice Struct representing the data needed to execute a queued transaction
-    /// @dev Nonce allows us to determine if the transaction queued originated from this virtual module
-    /// @param nonce The nonce of the queued transaction
-    /// @param target The address of the target contract
-    /// @param payload The payload of the transaction to be executed on the target contract
-    struct QueuedTx {
-        uint256 nonce;
-        address target;
-        bytes payload;
-    }
-
-    /*//////////////////////////////////////////////////////////////////////////
                                    CONSTANTS
     //////////////////////////////////////////////////////////////////////////*/
 
@@ -296,7 +268,7 @@ contract RoboSaverVirtualModule is
         /// @dev Any unstaked BPT should be staked first; rest of the logic assumes all $EURe is staked or in the card
         uint256 bptBalance = BPT_STEUR_EURE.balanceOf(CARD);
         if (bptBalance > 0) {
-            return (true, abi.encode(PoolAction.STAKE));
+            return (true, abi.encode(VirtualModule.PoolAction.STAKE));
         }
 
         uint256 balance = EURE.balanceOf(CARD);
@@ -348,15 +320,15 @@ contract RoboSaverVirtualModule is
             _poolWithdrawal(_amount);
         } else if (_action == VirtualModule.PoolAction.DEPOSIT) {
             _poolDeposit(_amount);
-        } else if (_action == PoolAction.CLOSE) {
+        } else if (_action == VirtualModule.PoolAction.CLOSE) {
             if (BPT_STEUR_EURE.balanceOf(CARD) == 0) {
                 _unstakeAndClaim();
             } else {
                 _poolClose(_amount);
             }
-        } else if (_action == PoolAction.STAKE) {
+        } else if (_action == VirtualModule.PoolAction.STAKE) {
             // @todo
-        } else if (_action == PoolAction.EXEC_QUEUE_POOL_ACTION) {
+        } else if (_action == VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION) {
             _executeQueuedTx();
         }
     }
