@@ -67,7 +67,7 @@ contract TopupTest is BaseFixture {
         // ensure default values at `queuedTx` after execution
         _assertPostDefaultValuesNextTxExec();
 
-        // withdrawing leaves some residual BPT in the save; so we take balances for both tokens
+        // withdrawing leaves some residual BPT in the save; so we add up balances of both tokens
         assertApproxEqAbs(
             IERC20(BPT_STEUR_EURE).balanceOf(address(safe)) + IERC20(AURA_GAUGE_STEUR_EURE).balanceOf(address(safe)),
             initialBptBal + initialStakedBptBal - maxBPTAmountIn,
@@ -79,6 +79,24 @@ contract TopupTest is BaseFixture {
             IERC20(EURE).balanceOf(address(safe)),
             initialEureBal + _deficit,
             "EURE balance: did not increase precisely by the amount withdrawn from the pool"
+        );
+
+        // deal with the residual bpt; lets confirm it is there and move it back to the pool
+        (canExec, execPayload) = roboModule.checkUpkeep("");
+        (_action,) = abi.decode(execPayload, (VirtualModule.PoolAction, uint256));
+
+        assertTrue(canExec, "CanExec: not executable");
+        assertEq(uint8(_action), uint8(VirtualModule.PoolAction.STAKE), "PoolAction: not staking the residual bpt");
+
+        // stake it and make sure the bpt balance left is zero
+        vm.prank(keeper);
+        roboModule.performUpkeep(execPayload);
+        vm.warp(block.timestamp + COOLDOWN_PERIOD);
+        vm.prank(keeper);
+        roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
+
+        assertEq(
+            IERC20(BPT_STEUR_EURE).balanceOf(address(safe)), 0, "BPT balance: still residual BPT left after staking"
         );
     }
 }
