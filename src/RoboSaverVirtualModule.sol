@@ -276,9 +276,11 @@ contract RoboSaverVirtualModule is
             return (true, abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
         }
 
-        /// @dev Any unstaked BPT should be staked first; rest of the logic assumes all $EURe is staked or in the card
+        /// @dev Only restake bpt if it is a residual of a partial withdrawal; ie if there is also a staked position
+        /// @dev If there is no staked position then the bpt is part of the pool closure action!
         uint256 bptBalance = BPT_STEUR_EURE.balanceOf(CARD);
-        if (bptBalance > 0) {
+        uint256 stakedBptBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
+        if (bptBalance > 0 && stakedBptBalance > 0) {
             return (true, abi.encode(VirtualModule.PoolAction.STAKE, 0));
         }
 
@@ -287,12 +289,14 @@ contract RoboSaverVirtualModule is
 
         if (balance < dailyAllowance) {
             /// @notice there is a deficit; we need to withdraw from the pool
-            uint256 stakedBptBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
-            if (stakedBptBalance == 0) return (false, bytes("No staked BPT balance on the card"));
+            /// @dev we consider both balances because we might be in the process of closing the pool
+            /// @dev in that case we still want to reach the PoolAction.CLOSE conclusion, even though there is no more staked bpt
+            uint256 totalBptBalance = bptBalance + stakedBptBalance;
+            if (totalBptBalance == 0) return (false, bytes("No staked BPT balance on the card"));
 
             uint256 deficit = dailyAllowance - balance + buffer;
             uint256 withdrawableEure =
-                stakedBptBalance * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
+                totalBptBalance * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
             if (withdrawableEure < deficit) {
                 return (true, abi.encode(VirtualModule.PoolAction.CLOSE, withdrawableEure));
             } else {
