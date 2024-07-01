@@ -32,7 +32,7 @@ contract SettersTest is BaseFixture {
         roboModule.setBuffer(1000);
 
         vm.prank(randomCaller);
-        vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.NotAdmin.selector, randomCaller));
+        vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.NeitherAdminNorFactory.selector, randomCaller));
         roboModule.setKeeper(address(554));
 
         vm.prank(randomCaller);

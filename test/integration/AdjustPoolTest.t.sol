@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {BaseFixture} from "../BaseFixture.sol";
 
+import {VirtualModule} from "../../src/types/DataTypes.sol";
 import {RoboSaverVirtualModule} from "../../src/RoboSaverVirtualModule.sol";
 
 contract AdjustPoolTest is BaseFixture {
@@ -23,7 +24,7 @@ contract AdjustPoolTest is BaseFixture {
         // keeper trying to exec for no reason `adjustPool` while checker is false
         vm.prank(roboModule.keeper());
         vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.ExternalTxIsQueued.selector));
-        roboModule.performUpkeep(abi.encode(RoboSaverVirtualModule.PoolAction.DEPOSIT, 2e18));
+        roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.DEPOSIT, 2e18));
     }
 
     function test_RevertWhen_VirtualModuleIsDisabled() public {
@@ -33,7 +34,7 @@ contract AdjustPoolTest is BaseFixture {
 
         vm.prank(roboModule.keeper());
         vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.VirtualModuleNotEnabled.selector));
-        roboModule.performUpkeep(abi.encode(RoboSaverVirtualModule.PoolAction.DEPOSIT, 2e18));
+        roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.DEPOSIT, 2e18));
     }
 
     function test_When_QueueHasExpiredTxs() public {
@@ -58,7 +59,7 @@ contract AdjustPoolTest is BaseFixture {
 
         // 3. trigger a normal flow (includes cleanup + queuing of a deposit)
         vm.prank(keeper);
-        roboModule.performUpkeep(abi.encode(RoboSaverVirtualModule.PoolAction.DEPOSIT, 2e18));
+        roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.DEPOSIT, 2e18));
 
         // asserts the clean up its checked, since it triggered `txNonce++`
         assertGt(delayModule.txNonce(), txNonceBeforeCleanup);
