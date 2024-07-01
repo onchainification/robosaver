@@ -16,6 +16,7 @@ import "@balancer-v2/interfaces/contracts/pool-stable/StablePoolUserData.sol";
 import {IKeeperRegistryMaster} from "@chainlink/automation/interfaces/v2_1/IKeeperRegistryMaster.sol";
 import {IKeeperRegistrar} from "../src/interfaces/chainlink/IKeeperRegistrar.sol";
 
+import {RoboSaverVirtualModuleFactory} from "../src/RoboSaverVirtualModuleFactory.sol";
 import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
 
 import {ISafeProxyFactory} from "@gnosispay-kit/interfaces/ISafeProxyFactory.sol";
@@ -81,7 +82,8 @@ contract BaseFixture is Test {
 
     ISafe safe;
 
-    // robosaver module
+    // robosaver module & factory
+    RoboSaverVirtualModuleFactory roboModuleFactory;
     RoboSaverVirtualModule roboModule;
 
     // Keeper address (forwarder): https://docs.chain.link/chainlink-automation/guides/forwarder#securing-your-upkeep
@@ -114,39 +116,26 @@ contract BaseFixture is Test {
 
         bouncerContract = new Bouncer(address(safe), address(rolesModule), SET_ALLOWANCE_SELECTOR);
 
-        roboModule = new RoboSaverVirtualModule(address(delayModule), address(rolesModule), EURE_BUFFER, SLIPPAGE);
+        roboModuleFactory = new RoboSaverVirtualModuleFactory();
+        // fund the factory with LINK for task top up
+        deal(LINK, address(roboModuleFactory), LINK_FOR_TASK_TOP_UP);
 
         // enable robo module in the delay & gnosis safe for tests flow
         vm.startPrank(address(safe));
+
+        // create from factory new robo virtual module
+        roboModuleFactory.createVirtualModule(address(delayModule), address(rolesModule), EURE_BUFFER, SLIPPAGE);
+        (address roboModuleAddress, uint256 upkeepId) = roboModuleFactory.virtualModules(address(safe));
+
+        roboModule = RoboSaverVirtualModule(roboModuleAddress);
+        // deduct keeper from the registry and factory upkeep id rerieved from factory storage
+        keeper = CL_REGISTRY.getForwarder(upkeepId);
 
         delayModule.enableModule(address(roboModule));
         delayModule.enableModule(address(safe));
 
         safe.enableModule(address(delayModule));
         safe.enableModule(address(rolesModule));
-
-        // registering the task in CL automation service
-        deal(LINK, address(safe), LINK_FOR_TASK_TOP_UP);
-        IERC20(LINK).approve(address(CL_REGISTRAR), LINK_FOR_TASK_TOP_UP);
-
-        IKeeperRegistrar.RegistrationParams memory registrationParams = IKeeperRegistrar.RegistrationParams({
-            name: string.concat(roboModule.name(), "-", _addressToString(address(safe))),
-            encryptedEmail: "",
-            upkeepContract: address(roboModule),
-            gasLimit: 2_000_000,
-            adminAddress: address(safe),
-            triggerType: 0,
-            checkData: "",
-            triggerConfig: "",
-            offchainConfig: "",
-            amount: LINK_FOR_TASK_TOP_UP
-        });
-
-        uint256 upkeepID = CL_REGISTRAR.registerUpkeep(registrationParams);
-        assertNotEq(upkeepID, 0);
-
-        keeper = CL_REGISTRY.getForwarder(upkeepID);
-        roboModule.setKeeper(keeper);
 
         vm.stopPrank();
 
@@ -162,8 +151,6 @@ contract BaseFixture is Test {
 
         // @note is it neccesary for our setup: assign roles, scope target, scope function?
 
-        // @note pendant of wiring up a keeper service here at some point
-
         vm.prank(SAFE_EOA_SIGNER);
         rolesModule.transferOwnership(address(bouncerContract));
 
@@ -172,15 +159,38 @@ contract BaseFixture is Test {
 
         deal(BPT_STEUR_EURE, address(safe), EURE_TO_MINT);
 
+        // assert here constructor action in the {RoboSaverVirtualModuleFactory} for a hit
+        assertEq(IERC20(LINK).allowance(address(roboModuleFactory), address(CL_REGISTRAR)), type(uint256).max);
+
+        _labelKeyContracts();
+    }
+
+    /// @dev Labels key contracts for tracing
+    function _labelKeyContracts() internal {
+        vm.label(address(safe), "GNOSIS_SAFE");
+        // robosaver module factory
+        vm.label(address(roboModuleFactory), "ROBO_MODULE_FACTORY");
+        // tokens
         vm.label(EURE, "EURE");
         vm.label(WETH, "WETH");
-        vm.label(address(safe), "GNOSIS_SAFE");
+        vm.label(LINK, "LINK");
+        // gnosis pay modules infrastructure
         vm.label(address(delayModule), "DELAY_MODULE");
         vm.label(address(bouncerContract), "BOUNCER_CONTRACT");
         vm.label(address(rolesModule), "ROLES_MODULE");
         vm.label(address(roboModule), "ROBO_MODULE");
+        // balancer
         vm.label(BPT_STEUR_EURE, "BPT_STEUR_EURE");
         vm.label(address(roboModule.BALANCER_VAULT()), "BALANCER_VAULT");
+        // chainlink
+        vm.label(address(CL_REGISTRY), "CL_REGISTRY");
+        vm.label(address(CL_REGISTRAR), "CL_REGISTRAR");
+    }
+
+    function _getDeterministicAddress(bytes memory bytecode, bytes32 _salt) internal view returns (address) {
+        bytes32 hash = keccak256(abi.encodePacked(bytes1(0xff), address(this), _salt, keccak256(bytecode)));
+
+        return address(uint160(uint256(hash)));
     }
 
     function _addressToString(address _addr) internal pure returns (string memory) {

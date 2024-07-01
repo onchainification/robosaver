@@ -9,7 +9,7 @@ import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
 
 import {Enum} from "../../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
 
-import {RoboSaverVirtualModule} from "../../src/RoboSaverVirtualModule.sol";
+import {VirtualModule} from "../../src/types/DataTypes.sol";
 
 contract TopupTest is BaseFixture {
     // @note ref for error codes: https://docs.balancer.fi/reference/contracts/error-codes.html#error-codes
@@ -29,13 +29,11 @@ contract TopupTest is BaseFixture {
         uint256 initialEureBal = IERC20(EURE).balanceOf(address(safe));
 
         (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
-        (RoboSaverVirtualModule.PoolAction _action, uint256 _deficit) =
-            abi.decode(execPayload, (RoboSaverVirtualModule.PoolAction, uint256));
+        (VirtualModule.PoolAction _action, uint256 _deficit) =
+            abi.decode(execPayload, (VirtualModule.PoolAction, uint256));
 
         assertTrue(canExec, "CanExec: not executable");
-        assertEq(
-            uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.WITHDRAW), "PoolAction: not withdrawal from pool"
-        );
+        assertEq(uint8(_action), uint8(VirtualModule.PoolAction.WITHDRAW), "PoolAction: not withdrawal from pool");
 
         // calc via Balancer Queries the max BPT amount to withdraw
         uint256 maxBPTAmountIn = _getMaxBptInExpected(_deficit, initialBptBal);
@@ -63,7 +61,7 @@ contract TopupTest is BaseFixture {
         _assertPreStorageValuesNextTxExec(address(roboModule.BALANCER_VAULT()), abi.decode(entries[1].data, (bytes)));
 
         vm.prank(keeper);
-        roboModule.performUpkeep(abi.encode(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
+        roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
 
         // ensure default values at `queuedTx` after execution
         _assertPostDefaultValuesNextTxExec();

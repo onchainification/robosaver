@@ -13,7 +13,7 @@ import {Enum} from "../../lib/delay-module/node_modules/@gnosis.pm/safe-contract
 
 import {IEURe} from "../../src/interfaces/eure/IEURe.sol";
 
-import {RoboSaverVirtualModule} from "../../src/RoboSaverVirtualModule.sol";
+import {VirtualModule} from "../../src/types/DataTypes.sol";
 
 contract TopupBptTest is BaseFixture {
     function testTopupBpt() public {
@@ -25,14 +25,12 @@ contract TopupBptTest is BaseFixture {
         uint256 initialAuraGaugeBalance = IERC20(AURA_GAUGE_STEUR_EURE).balanceOf(address(safe));
 
         (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
-        (RoboSaverVirtualModule.PoolAction _action, uint256 _amount) =
-            abi.decode(execPayload, (RoboSaverVirtualModule.PoolAction, uint256));
+        (VirtualModule.PoolAction _action, uint256 _amount) =
+            abi.decode(execPayload, (VirtualModule.PoolAction, uint256));
 
         // since initially it was minted 1000 it should be way above the buffer
         assertTrue(canExec, "CanExec: not executable");
-        assertEq(
-            uint8(_action), uint8(RoboSaverVirtualModule.PoolAction.DEPOSIT), "PoolAction: not depositing into the pool"
-        );
+        assertEq(uint8(_action), uint8(VirtualModule.PoolAction.DEPOSIT), "PoolAction: not depositing into the pool");
 
         uint256 bptOutExpected = _getBptOutExpected(_amount);
 
@@ -63,7 +61,7 @@ contract TopupBptTest is BaseFixture {
         // 1. eure exact appproval to `BALANCER_VAULT`
         // 2. join the pool single sided with the excess
         vm.prank(keeper);
-        roboModule.performUpkeep(abi.encode(RoboSaverVirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
+        roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
 
         // ensure default values at `queuedTx` after execution
         _assertPostDefaultValuesNextTxExec();

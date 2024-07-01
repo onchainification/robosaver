@@ -8,13 +8,15 @@ import {Delay} from "@delay-module/Delay.sol";
 import {Roles} from "@roles-module/Roles.sol";
 import {Bouncer} from "@gnosispay-kit/Bouncer.sol";
 
+import {RoboSaverVirtualModuleFactory} from "../src/RoboSaverVirtualModuleFactory.sol";
 import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
 
 /// @notice Deploys a setup mirroring GnosisPay infrastructure components and RoboSaverVirtualModule, in the following order:
 /// 1. {RolesModule}
 /// 2. {DelayModule}
 /// 3. {Bouncer}
-/// 4. {RoboSaverVirtualModule}
+/// 4. {RoboSaverVirtualModuleFactory}
+/// 5. {RoboSaverVirtualModule}
 contract GnosisPayInfraDeployment is Script {
     // safe target
     address constant GNOSIS_SAFE = 0xa4A4a4879dCD3289312884e9eC74Ed37f9a92a55;
@@ -43,7 +45,8 @@ contract GnosisPayInfraDeployment is Script {
 
     Bouncer bouncerContract;
 
-    // robosaver module
+    // robosaver module & factory
+    RoboSaverVirtualModuleFactory roboModuleFactory;
     RoboSaverVirtualModule roboModule;
 
     function run() public {
@@ -61,10 +64,15 @@ contract GnosisPayInfraDeployment is Script {
         // 3. {Bouncer}
         bouncerContract = new Bouncer(GNOSIS_SAFE, address(rolesModule), SET_ALLOWANCE_SELECTOR);
 
-        // 4. {RoboSaverVirtualModule}
-        roboModule = new RoboSaverVirtualModule(address(delayModule), address(rolesModule), 50e18, 200);
+        // 4. {RoboSaverVirtualModuleFactory}
+        roboModuleFactory = new RoboSaverVirtualModuleFactory();
 
-        // 5. {Allowance config}
+        // 5. {RoboSaverVirtualModule}
+        roboModule = new RoboSaverVirtualModule(
+            address(roboModuleFactory), address(delayModule), address(rolesModule), 50e18, 200
+        );
+
+        // 6. {Allowance config}
         rolesModule.setAllowance(
             SET_ALLOWANCE_KEY,
             MIN_EURE_ALLOWANCE,

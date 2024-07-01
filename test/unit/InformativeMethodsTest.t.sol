@@ -3,8 +3,6 @@ pragma solidity ^0.8.25;
 
 import {BaseFixture} from "../BaseFixture.sol";
 
-import {RoboSaverVirtualModule} from "../../src/RoboSaverVirtualModule.sol";
-
 /// @notice Suite is focus mainly in the following methods for coverage:
 /// - `RoboSaverVirtualModule.name()`
 /// - `RoboSaverVirtualModule.version()`
