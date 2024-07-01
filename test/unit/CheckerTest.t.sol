@@ -41,7 +41,7 @@ contract CheckerTest is BaseFixture {
         assertEq(execPayload, bytes("External transaction in queue, wait for it to be executed"));
     }
 
-    function testChecker_When_NoBptBalance() public {
+    function testChecker_When_NoStakedBalance() public {
         _assertCheckerFalseNoDeficitNorSurplus();
 
         // move out $EURe to get into `balance < dailyAllowance` flow and ensure BPT balance is null
@@ -51,9 +51,9 @@ contract CheckerTest is BaseFixture {
         delayModule.executeNextTx(EURE, 0, payload, Enum.Operation.Call);
 
         vm.mockCall(
-            address(BPT_STEUR_EURE), abi.encodeWithSelector(IERC20.balanceOf.selector, address(safe)), abi.encode(0)
+            address(AURA_GAUGE_STEUR_EURE), abi.encodeWithSelector(IERC20.balanceOf.selector, address(safe)), abi.encode(0)
         );
-        assertEq(IERC20(BPT_STEUR_EURE).balanceOf(address(safe)), 0);
+        assertEq(IERC20(AURA_GAUGE_STEUR_EURE).balanceOf(address(safe)), 0);
 
         (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
         vm.clearMockedCalls();
