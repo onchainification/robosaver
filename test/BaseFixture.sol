@@ -157,7 +157,7 @@ contract BaseFixture is Test {
         vm.prank(EURE_MINTER);
         IEURe(EURE).mintTo(address(safe), EURE_TO_MINT);
 
-        deal(BPT_STEUR_EURE, address(safe), EURE_TO_MINT);
+        deal(AURA_GAUGE_STEUR_EURE, address(safe), EURE_TO_MINT);
 
         // assert here constructor action in the {RoboSaverVirtualModuleFactory} for a hit
         assertEq(IERC20(LINK).allowance(address(roboModuleFactory), address(CL_REGISTRAR)), type(uint256).max);
@@ -181,6 +181,7 @@ contract BaseFixture is Test {
         vm.label(address(roboModule), "ROBO_MODULE");
         // balancer
         vm.label(BPT_STEUR_EURE, "BPT_STEUR_EURE");
+        vm.label(AURA_GAUGE_STEUR_EURE, "AURA_GAUGE_STEUR_EURE");
         vm.label(address(roboModule.BALANCER_VAULT()), "BALANCER_VAULT");
         // chainlink
         vm.label(address(CL_REGISTRY), "CL_REGISTRY");
