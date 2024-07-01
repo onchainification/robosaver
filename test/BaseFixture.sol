@@ -58,6 +58,7 @@ contract BaseFixture is Test {
     address constant EURE = 0xcB444e90D8198415266c6a2724b7900fb12FC56E;
     address constant WETH = 0x6A023CCd1ff6F2045C3309768eAd9E68F978f6e1;
     address constant BPT_STEUR_EURE = 0x06135A9Ae830476d3a941baE9010B63732a055F4;
+    address constant AURA_GAUGE_STEUR_EURE = 0x408883E983695DeC78CF66480e6eFeF907a73c21;
     address constant LINK = 0xE2e73A1c69ecF83F464EFCE6A5be353a37cA09b2;
 
     address constant EURE_MINTER = 0x882145B1F9764372125861727d7bE616c84010Ef;
@@ -156,7 +157,7 @@ contract BaseFixture is Test {
         vm.prank(EURE_MINTER);
         IEURe(EURE).mintTo(address(safe), EURE_TO_MINT);
 
-        deal(BPT_STEUR_EURE, address(safe), EURE_TO_MINT);
+        deal(AURA_GAUGE_STEUR_EURE, address(safe), EURE_TO_MINT);
 
         // assert here constructor action in the {RoboSaverVirtualModuleFactory} for a hit
         assertEq(IERC20(LINK).allowance(address(roboModuleFactory), address(CL_REGISTRAR)), type(uint256).max);
@@ -180,6 +181,7 @@ contract BaseFixture is Test {
         vm.label(address(roboModule), "ROBO_MODULE");
         // balancer
         vm.label(BPT_STEUR_EURE, "BPT_STEUR_EURE");
+        vm.label(AURA_GAUGE_STEUR_EURE, "AURA_GAUGE_STEUR_EURE");
         vm.label(address(roboModule.BALANCER_VAULT()), "BALANCER_VAULT");
         // chainlink
         vm.label(address(CL_REGISTRY), "CL_REGISTRY");
