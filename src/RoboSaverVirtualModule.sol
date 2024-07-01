@@ -5,6 +5,7 @@ import {IMulticall} from "@gnosispay-kit/interfaces/IMulticall.sol";
 import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
 
 import {IRewardPoolDepositWrapper} from "./interfaces/aura/IRewardPoolDepositWrapper.sol";
+import {IBaseRewardPool4626} from "./interfaces/aura/IBaseRewardPool4626.sol";
 import {IComposableStablePool} from "./interfaces/balancer/IComposableStablePool.sol";
 import {IDelayModifier} from "./interfaces/delayModule/IDelayModifier.sol";
 
@@ -46,7 +47,8 @@ contract RoboSaverVirtualModule is
     IRewardPoolDepositWrapper constant AURA_DEPOSITOR =
         IRewardPoolDepositWrapper(0x0Fec3d212BcC29eF3E505B555D7a7343DF0B7F76);
     IComposableStablePool immutable BPT_STEUR_EURE;
-    IERC4626 immutable AURA_GAUGE_STEUR_EURE = IERC4626(0x408883E983695DeC78CF66480e6eFeF907a73c21);
+    IBaseRewardPool4626 immutable AURA_GAUGE_STEUR_EURE =
+        IBaseRewardPool4626(0x408883E983695DeC78CF66480e6eFeF907a73c21);
 
     address public immutable FACTORY;
 
@@ -327,7 +329,7 @@ contract RoboSaverVirtualModule is
                 _poolClose(_amount);
             }
         } else if (_action == VirtualModule.PoolAction.STAKE) {
-            // @todo
+            _stakeAllBpt();
         } else if (_action == VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION) {
             _executeQueuedTx();
         }
@@ -436,13 +438,32 @@ contract RoboSaverVirtualModule is
 
     /// @notice Unstake and claim all pending rewards from the Aura gauge
     function _unstakeAndClaim() internal {
-        uint256 gaugeBalance = IERC20(AURA_GAUGE_STEUR_EURE).balanceOf(address(this));
+        uint256 gaugeBalance = AURA_GAUGE_STEUR_EURE.balanceOf(address(this));
         _queueTx(
             address(AURA_GAUGE_STEUR_EURE),
             abi.encodeWithSignature("withdrawAndUnwrap(uint256,bool)", gaugeBalance, true)
         );
 
         emit GaugeUnstakeAndClaimQueued(CARD, gaugeBalance, block.timestamp);
+    }
+
+    /// @notice Stake all BPT on its Aura gauge
+    function _stakeAllBpt() internal {
+        uint256 bptBalance = BPT_STEUR_EURE.balanceOf(address(this));
+
+        bytes memory approveBptPayload =
+            abi.encodeWithSignature("approve(address,uint256)", address(AURA_GAUGE_STEUR_EURE), bptBalance);
+        bytes memory stakePayload = abi.encodeWithSelector(IBaseRewardPool4626.stake.selector);
+
+        /// @dev Batch all payloads into a multicall
+        IMulticall.Call[] memory calls_ = new IMulticall.Call[](2);
+        calls_[0] = IMulticall.Call(address(BPT_STEUR_EURE), approveBptPayload);
+        calls_[1] = IMulticall.Call(address(AURA_GAUGE_STEUR_EURE), stakePayload);
+        bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
+
+        _queueTx(MULTICALL3, multicallPayload);
+
+        // emit StakeQueued(CARD, bptBalance, block.timestamp);
     }
 
     /// @dev Execute the next transaction in the queue using the storage variable `queuedTx`
