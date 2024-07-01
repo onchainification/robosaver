@@ -6,6 +6,8 @@ import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
 
 import {IRewardPoolDepositWrapper} from "./interfaces/aura/IRewardPoolDepositWrapper.sol";
 import {IBaseRewardPool4626} from "./interfaces/aura/IBaseRewardPool4626.sol";
+import {IVoterProxyLite} from "./interfaces/aura/IVoterProxyLite.sol";
+import {IBoosterLite} from "./interfaces/aura/IBoosterLite.sol";
 import {IComposableStablePool} from "./interfaces/balancer/IComposableStablePool.sol";
 import {IDelayModifier} from "./interfaces/delayModule/IDelayModifier.sol";
 
@@ -46,9 +48,10 @@ contract RoboSaverVirtualModule is
 
     IRewardPoolDepositWrapper constant AURA_DEPOSITOR =
         IRewardPoolDepositWrapper(0x0Fec3d212BcC29eF3E505B555D7a7343DF0B7F76);
+    IBoosterLite constant AURA_BOOSTER = IBoosterLite(0x98Ef32edd24e2c92525E59afc4475C1242a30184);
+    IVoterProxyLite constant AURA_PROXY = IVoterProxyLite(0xC181Edc719480bd089b94647c2Dc504e2700a2B0);
+    IBaseRewardPool4626 constant AURA_GAUGE_STEUR_EURE = IBaseRewardPool4626(0x408883E983695DeC78CF66480e6eFeF907a73c21);
     IComposableStablePool immutable BPT_STEUR_EURE;
-    IBaseRewardPool4626 immutable AURA_GAUGE_STEUR_EURE =
-        IBaseRewardPool4626(0x408883E983695DeC78CF66480e6eFeF907a73c21);
 
     address public immutable FACTORY;
 
@@ -99,6 +102,12 @@ contract RoboSaverVirtualModule is
     /// @param amount The amount of bpt to unstake
     /// @param timestamp The timestamp of the transaction
     event GaugeUnstakeAndClaimQueued(address indexed safe, uint256 amount, uint256 timestamp);
+
+    /// @notice Emitted when a transaction to stake the residual bpt on the card has been queued up
+    /// @param safe The address of the card
+    /// @param amount The amount of bpt that was staked
+    /// @param timestamp The timestamp of the transaction
+    event StakeQueued(address indexed safe, uint256 amount, uint256 timestamp);
 
     /// @notice Emitted when an adjustment pool transaction is being queued up
     /// @dev Event is leverage by off-chain service to execute the queued transaction
@@ -270,7 +279,7 @@ contract RoboSaverVirtualModule is
         /// @dev Any unstaked BPT should be staked first; rest of the logic assumes all $EURe is staked or in the card
         uint256 bptBalance = BPT_STEUR_EURE.balanceOf(CARD);
         if (bptBalance > 0) {
-            return (true, abi.encode(VirtualModule.PoolAction.STAKE));
+            return (true, abi.encode(VirtualModule.PoolAction.STAKE, 0));
         }
 
         uint256 balance = EURE.balanceOf(CARD);
@@ -449,21 +458,21 @@ contract RoboSaverVirtualModule is
 
     /// @notice Stake all BPT on its Aura gauge
     function _stakeAllBpt() internal {
-        uint256 bptBalance = BPT_STEUR_EURE.balanceOf(address(this));
+        uint256 bptBalance = BPT_STEUR_EURE.balanceOf(address(CARD));
 
         bytes memory approveBptPayload =
-            abi.encodeWithSignature("approve(address,uint256)", address(AURA_GAUGE_STEUR_EURE), bptBalance);
-        bytes memory stakePayload = abi.encodeWithSelector(IBaseRewardPool4626.stake.selector);
+            abi.encodeWithSignature("approve(address,uint256)", address(AURA_BOOSTER), bptBalance);
+        bytes memory stakePayload = abi.encodeWithSignature("depositAll(uint256,bool)", 22, true);
 
         /// @dev Batch all payloads into a multicall
         IMulticall.Call[] memory calls_ = new IMulticall.Call[](2);
         calls_[0] = IMulticall.Call(address(BPT_STEUR_EURE), approveBptPayload);
-        calls_[1] = IMulticall.Call(address(AURA_GAUGE_STEUR_EURE), stakePayload);
+        calls_[1] = IMulticall.Call(address(AURA_BOOSTER), stakePayload);
         bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
 
         _queueTx(MULTICALL3, multicallPayload);
 
-        // emit StakeQueued(CARD, bptBalance, block.timestamp);
+        emit StakeQueued(CARD, bptBalance, block.timestamp);
     }
 
     /// @dev Execute the next transaction in the queue using the storage variable `queuedTx`
