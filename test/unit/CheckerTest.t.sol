@@ -51,7 +51,9 @@ contract CheckerTest is BaseFixture {
         delayModule.executeNextTx(EURE, 0, payload, Enum.Operation.Call);
 
         vm.mockCall(
-            address(AURA_GAUGE_STEUR_EURE), abi.encodeWithSelector(IERC20.balanceOf.selector, address(safe)), abi.encode(0)
+            address(AURA_GAUGE_STEUR_EURE),
+            abi.encodeWithSelector(IERC20.balanceOf.selector, address(safe)),
+            abi.encode(0)
         );
         assertEq(IERC20(AURA_GAUGE_STEUR_EURE).balanceOf(address(safe)), 0);
 
