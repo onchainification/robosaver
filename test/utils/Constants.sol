@@ -3,12 +3,12 @@ pragma solidity ^0.8.25;
 
 import {IBalancerQueries} from "@balancer-v2/interfaces/contracts/standalone-utils/IBalancerQueries.sol";
 
-import {IKeeperRegistryMaster} from "@chainlink/automation/interfaces/v2_1/IKeeperRegistryMaster.sol";
-import {IKeeperRegistrar} from "../../src/interfaces/chainlink/IKeeperRegistrar.sol";
-
 import {ISafeProxyFactory} from "@gnosispay-kit/interfaces/ISafeProxyFactory.sol";
 
-abstract contract Constants {
+import {FactoryConstants} from "../../src/abstracts/FactoryConstants.sol";
+import {RoboSaverConstants} from "../../src//abstracts/RoboSaverConstants.sol";
+
+abstract contract Constants is FactoryConstants, RoboSaverConstants {
     uint256 constant DIFF_MIN_OUT_CALC_ALLOWED = 70000000000000; // 0.00007 ether units
 
     uint16 constant SLIPPAGE = 200; // 2%
@@ -33,14 +33,11 @@ abstract contract Constants {
     // bouncer config
     bytes4 constant SET_ALLOWANCE_SELECTOR =
         bytes4(keccak256(bytes("setAllowance(bytes32,uint128,uint128,uint128,uint64,uint64)"))); // 0xa8ec43ee
-    bytes32 constant SET_ALLOWANCE_KEY = keccak256("SPENDING_ALLOWANCE");
 
     // tokens
     address constant EURE = 0xcB444e90D8198415266c6a2724b7900fb12FC56E;
     address constant WETH = 0x6A023CCd1ff6F2045C3309768eAd9E68F978f6e1;
     address constant BPT_STEUR_EURE = 0x06135A9Ae830476d3a941baE9010B63732a055F4;
-    address constant AURA_GAUGE_STEUR_EURE = 0x408883E983695DeC78CF66480e6eFeF907a73c21;
-    address constant LINK = 0xE2e73A1c69ecF83F464EFCE6A5be353a37cA09b2;
 
     address constant EURE_MINTER = 0x882145B1F9764372125861727d7bE616c84010Ef;
 
@@ -48,10 +45,6 @@ abstract contract Constants {
 
     // balancer helper
     IBalancerQueries constant BALANCER_QUERIES = IBalancerQueries(0x0F3e0c4218b7b0108a3643cFe9D3ec0d4F57c54e);
-
-    // CL: https://docs.chain.link/chainlink-automation/overview/supported-networks#gnosis-chain-xdai
-    IKeeperRegistryMaster constant CL_REGISTRY = IKeeperRegistryMaster(0x299c92a219F61a82E91d2062A262f7157F155AC1);
-    IKeeperRegistrar constant CL_REGISTRAR = IKeeperRegistrar(0x0F7E163446AAb41DB5375AbdeE2c3eCC56D9aA32);
 
     uint96 constant LINK_FOR_TASK_TOP_UP = 1_000e18; // plenty of funds
 }

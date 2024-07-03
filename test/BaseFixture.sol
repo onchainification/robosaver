@@ -65,7 +65,7 @@ contract BaseFixture is Test, Constants {
 
         roboModuleFactory = new RoboSaverVirtualModuleFactory();
         // fund the factory with LINK for task top up
-        deal(LINK, address(roboModuleFactory), LINK_FOR_TASK_TOP_UP);
+        deal(address(LINK), address(roboModuleFactory), LINK_FOR_TASK_TOP_UP);
 
         // enable robo module in the delay & gnosis safe for tests flow
         vm.startPrank(address(safe));
@@ -104,10 +104,10 @@ contract BaseFixture is Test, Constants {
         vm.prank(EURE_MINTER);
         IEURe(EURE).mintTo(address(safe), EURE_TO_MINT);
 
-        deal(AURA_GAUGE_STEUR_EURE, address(safe), EURE_TO_MINT);
+        deal(address(AURA_GAUGE_STEUR_EURE), address(safe), EURE_TO_MINT);
 
         // assert here constructor action in the {RoboSaverVirtualModuleFactory} for a hit
-        assertEq(IERC20(LINK).allowance(address(roboModuleFactory), address(CL_REGISTRAR)), type(uint256).max);
+        assertEq(LINK.allowance(address(roboModuleFactory), address(CL_REGISTRAR)), type(uint256).max);
 
         _labelKeyContracts();
     }
@@ -120,7 +120,7 @@ contract BaseFixture is Test, Constants {
         // tokens
         vm.label(EURE, "EURE");
         vm.label(WETH, "WETH");
-        vm.label(LINK, "LINK");
+        vm.label(address(LINK), "LINK");
         // gnosis pay modules infrastructure
         vm.label(address(delayModule), "DELAY_MODULE");
         vm.label(address(bouncerContract), "BOUNCER_CONTRACT");
@@ -128,7 +128,7 @@ contract BaseFixture is Test, Constants {
         vm.label(address(roboModule), "ROBO_MODULE");
         // balancer
         vm.label(BPT_STEUR_EURE, "BPT_STEUR_EURE");
-        vm.label(AURA_GAUGE_STEUR_EURE, "AURA_GAUGE_STEUR_EURE");
+        vm.label(address(AURA_GAUGE_STEUR_EURE), "AURA_GAUGE_STEUR_EURE");
         vm.label(address(roboModule.BALANCER_VAULT()), "BALANCER_VAULT");
         // chainlink
         vm.label(address(CL_REGISTRY), "CL_REGISTRY");

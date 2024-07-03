@@ -41,7 +41,7 @@ contract ClosePoolTest is BaseFixture {
         vm.warp(block.timestamp + COOLDOWN_PERIOD);
         roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
 
-        assertEq(IERC20(AURA_GAUGE_STEUR_EURE).balanceOf(address(safe)), 0);
+        assertEq(AURA_GAUGE_STEUR_EURE.balanceOf(address(safe)), 0);
         assertEq(IERC20(BPT_STEUR_EURE).balanceOf(address(safe)), 0);
         assertGe(IERC20(EURE).balanceOf(address(safe)), eureBeforeCloseBalance + _amount);
 
