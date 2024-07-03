@@ -5,9 +5,6 @@ import {IMulticall} from "@gnosispay-kit/interfaces/IMulticall.sol";
 import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
 
 import {IRewardPoolDepositWrapper} from "./interfaces/aura/IRewardPoolDepositWrapper.sol";
-import {IBaseRewardPool4626} from "./interfaces/aura/IBaseRewardPool4626.sol";
-import {IVoterProxyLite} from "./interfaces/aura/IVoterProxyLite.sol";
-import {IBoosterLite} from "./interfaces/aura/IBoosterLite.sol";
 import {IComposableStablePool} from "./interfaces/balancer/IComposableStablePool.sol";
 import {IDelayModifier} from "./interfaces/delayModule/IDelayModifier.sol";
 
@@ -19,38 +16,23 @@ import "@balancer-v2/interfaces/contracts/solidity-utils/misc/IERC4626.sol";
 import {KeeperCompatibleInterface} from "@chainlink/automation/interfaces/KeeperCompatibleInterface.sol";
 
 import {VirtualModule} from "./types/DataTypes.sol";
+import {Errors} from "./libraries/Errors.sol";
+
+import {VirtualModuleConstants} from "./abstracts/VirtualModuleConstants.sol";
 
 /// @title RoboSaver: turn your Gnosis Pay card into an automated savings account!
 /// @author onchainification.xyz
 /// @notice Deposit and withdraw $EURe from your Gnosis Pay card to a liquidity pool
 contract RoboSaverVirtualModule is
-    KeeperCompatibleInterface // 1 inherited component
+    KeeperCompatibleInterface, // 1 inherited component
+    VirtualModuleConstants // 1 inherited component
 {
     /*//////////////////////////////////////////////////////////////////////////
                                    CONSTANTS
     //////////////////////////////////////////////////////////////////////////*/
-
-    uint16 constant MAX_BPS = 10_000;
-
-    uint256 public constant EURE_TOKEN_BPT_INDEX = 2;
-    uint256 public constant EURE_TOKEN_BPT_INDEX_USER = 1;
-
-    address public constant MULTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
-    address public immutable CARD;
-
-    IVault public constant BALANCER_VAULT = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
-
-    bytes32 public constant BPT_STEUR_EURE_POOL_ID = 0x06135a9ae830476d3a941bae9010b63732a055f4000000000000000000000065;
-    bytes32 constant SET_ALLOWANCE_KEY = keccak256("SPENDING_ALLOWANCE");
-
     IERC20 immutable STEUR;
     IERC20 immutable EURE;
 
-    IRewardPoolDepositWrapper constant AURA_DEPOSITOR =
-        IRewardPoolDepositWrapper(0x0Fec3d212BcC29eF3E505B555D7a7343DF0B7F76);
-    IBoosterLite constant AURA_BOOSTER = IBoosterLite(0x98Ef32edd24e2c92525E59afc4475C1242a30184);
-    IVoterProxyLite constant AURA_PROXY = IVoterProxyLite(0xC181Edc719480bd089b94647c2Dc504e2700a2B0);
-    IBaseRewardPool4626 constant AURA_GAUGE_STEUR_EURE = IBaseRewardPool4626(0x408883E983695DeC78CF66480e6eFeF907a73c21);
     IComposableStablePool immutable BPT_STEUR_EURE;
 
     address public immutable FACTORY;
@@ -142,40 +124,24 @@ contract RoboSaverVirtualModule is
     event SetSlippage(address indexed admin, uint256 oldSlippage, uint256 newSlippage);
 
     /*//////////////////////////////////////////////////////////////////////////
-                                       ERRORS
-    //////////////////////////////////////////////////////////////////////////*/
-
-    error NotKeeper(address agent);
-    error NotAdmin(address agent);
-    error NeitherAdminNorFactory(address agent);
-
-    error ZeroAddressValue();
-    error ZeroUintValue();
-
-    error TooHighBps();
-
-    error ExternalTxIsQueued();
-    error VirtualModuleNotEnabled();
-
-    /*//////////////////////////////////////////////////////////////////////////
                                       MODIFIERS
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice Enforce that the function is called by the keeper only
     modifier onlyKeeper() {
-        if (msg.sender != keeper) revert NotKeeper(msg.sender);
+        if (msg.sender != keeper) revert Errors.NotKeeper(msg.sender);
         _;
     }
 
     /// @notice Enforce that the function is called by the admin only
     modifier onlyAdmin() {
-        if (msg.sender != CARD) revert NotAdmin(msg.sender);
+        if (msg.sender != CARD) revert Errors.NotAdmin(msg.sender);
         _;
     }
 
     /// @notice Enforce that the function is called by the admin or the factory only
     modifier onlyAdminOrFactory() {
-        if (msg.sender != CARD && msg.sender != FACTORY) revert NeitherAdminNorFactory(msg.sender);
+        if (msg.sender != CARD && msg.sender != FACTORY) revert Errors.NeitherAdminNorFactory(msg.sender);
         _;
     }
 
@@ -232,7 +198,7 @@ contract RoboSaverVirtualModule is
     /// @notice Assigns a new keeper address
     /// @param _keeper The address of the new keeper
     function setKeeper(address _keeper) external onlyAdminOrFactory {
-        if (_keeper == address(0)) revert ZeroAddressValue();
+        if (_keeper == address(0)) revert Errors.ZeroAddressValue();
 
         address oldKeeper = keeper;
         keeper = _keeper;
@@ -327,9 +293,9 @@ contract RoboSaverVirtualModule is
     /// @param _action The action to take: deposit or withdraw
     /// @param _amount The amount of $EURe to deposit or withdraw
     function _adjustPool(VirtualModule.PoolAction _action, uint256 _amount) internal {
-        if (!delayModule.isModuleEnabled(address(this))) revert VirtualModuleNotEnabled();
+        if (!delayModule.isModuleEnabled(address(this))) revert Errors.VirtualModuleNotEnabled();
         if (_isCleanQueueRequired()) delayModule.skipExpired();
-        if (_isExternalTxQueued()) revert ExternalTxIsQueued();
+        if (_isExternalTxQueued()) revert Errors.ExternalTxIsQueued();
 
         if (_action == VirtualModule.PoolAction.WITHDRAW) {
             _poolWithdrawal(_amount);
@@ -537,7 +503,7 @@ contract RoboSaverVirtualModule is
     }
 
     function _setSlippage(uint16 _slippage) internal {
-        if (_slippage >= MAX_BPS) revert TooHighBps();
+        if (_slippage >= MAX_BPS) revert Errors.TooHighBps();
 
         uint16 oldSlippage = slippage;
         slippage = _slippage;
@@ -546,7 +512,7 @@ contract RoboSaverVirtualModule is
     }
 
     function _setBuffer(uint256 _buffer) internal {
-        if (_buffer == 0) revert ZeroUintValue();
+        if (_buffer == 0) revert Errors.ZeroUintValue();
 
         uint256 oldBuffer = buffer;
         buffer = _buffer;
