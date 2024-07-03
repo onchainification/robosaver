@@ -12,6 +12,7 @@ library VirtualModule {
         WITHDRAW,
         DEPOSIT,
         CLOSE,
+        STAKE,
         EXEC_QUEUE_POOL_ACTION
     }
 

@@ -22,7 +22,7 @@ contract TopupBptTest is BaseFixture {
         IEURe(EURE).mintTo(address(safe), EURE_TO_MINT);
 
         uint256 initialEureBal = IERC20(EURE).balanceOf(address(safe));
-        uint256 initialBptBal = IERC20(BPT_STEUR_EURE).balanceOf(address(safe));
+        uint256 initialAuraGaugeBalance = IERC20(AURA_GAUGE_STEUR_EURE).balanceOf(address(safe));
 
         (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
         (VirtualModule.PoolAction _action, uint256 _amount) =
@@ -72,10 +72,10 @@ contract TopupBptTest is BaseFixture {
             "EURE balance: did not decrease precisely by the amount deposited into the pool"
         );
         assertApproxEqAbs(
-            IERC20(BPT_STEUR_EURE).balanceOf(address(safe)),
-            initialBptBal + bptOutExpected,
+            IERC20(AURA_GAUGE_STEUR_EURE).balanceOf(address(safe)),
+            initialAuraGaugeBalance + bptOutExpected,
             DIFF_MIN_OUT_CALC_ALLOWED,
-            "BPT balance: after depositing has greater difference than allowed (received vs expected)"
+            "Aura gauge balance: after depositing has greater difference than allowed (received vs expected)"
         );
     }
 }

@@ -4,12 +4,15 @@ pragma solidity ^0.8.25;
 import {IMulticall} from "@gnosispay-kit/interfaces/IMulticall.sol";
 import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
 
-import {IComposableStablePool} from "./interfaces/IComposableStablePool.sol";
+import {IRewardPoolDepositWrapper} from "./interfaces/aura/IRewardPoolDepositWrapper.sol";
+import {IBoosterLite} from "./interfaces/aura/IBoosterLite.sol";
+import {IComposableStablePool} from "./interfaces/balancer/IComposableStablePool.sol";
 import {IDelayModifier} from "./interfaces/delayModule/IDelayModifier.sol";
 
 import {IAsset} from "@balancer-v2/interfaces/contracts/vault/IAsset.sol";
 import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
 import "@balancer-v2/interfaces/contracts/pool-stable/StablePoolUserData.sol";
+import "@balancer-v2/interfaces/contracts/solidity-utils/misc/IERC4626.sol";
 
 import {KeeperCompatibleInterface} from "@chainlink/automation/interfaces/KeeperCompatibleInterface.sol";
 
@@ -40,7 +43,11 @@ contract RoboSaverVirtualModule is
 
     IERC20 immutable STEUR;
     IERC20 immutable EURE;
+    IERC4626 constant AURA_GAUGE_STEUR_EURE = IERC4626(0x408883E983695DeC78CF66480e6eFeF907a73c21);
 
+    IRewardPoolDepositWrapper constant AURA_DEPOSITOR =
+        IRewardPoolDepositWrapper(0x0Fec3d212BcC29eF3E505B555D7a7343DF0B7F76);
+    IBoosterLite constant AURA_BOOSTER = IBoosterLite(0x98Ef32edd24e2c92525E59afc4475C1242a30184);
     IComposableStablePool immutable BPT_STEUR_EURE;
 
     address public immutable FACTORY;
@@ -87,6 +94,12 @@ contract RoboSaverVirtualModule is
     /// @param timestamp The timestamp of the transaction
     event PoolDepositQueued(address indexed safe, uint256 amount, uint256 timestamp);
 
+    /// @notice Emitted when a transaction to stake the residual bpt on the card has been queued up
+    /// @param safe The address of the card
+    /// @param amount The amount of bpt that is being staked
+    /// @param timestamp The timestamp of the transaction
+    event StakeQueued(address indexed safe, uint256 amount, uint256 timestamp);
+
     /// @notice Emitted when an adjustment pool transaction is being queued up
     /// @dev Event is leverage by off-chain service to execute the queued transaction
     /// @param target The address of the target contract
@@ -131,6 +144,7 @@ contract RoboSaverVirtualModule is
     error ZeroUintValue();
 
     error TooHighBps();
+    error TooLowStakedBptBalance(uint256 stakedGaugeBalance, uint256 bptRequiredBalance);
 
     error ExternalTxIsQueued();
     error VirtualModuleNotEnabled();
@@ -254,17 +268,22 @@ contract RoboSaverVirtualModule is
             return (true, abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
         }
 
-        uint256 balance = EURE.balanceOf(CARD);
+        uint256 bptBalance = BPT_STEUR_EURE.balanceOf(CARD);
+        if (bptBalance > 0) {
+            return (true, abi.encode(VirtualModule.PoolAction.STAKE, 0));
+        }
 
+        uint256 balance = EURE.balanceOf(CARD);
         (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
         if (balance < dailyAllowance) {
             /// @notice there is a deficit; we need to withdraw from the pool
-            uint256 bptBalance = BPT_STEUR_EURE.balanceOf(CARD);
-            if (bptBalance == 0) return (false, bytes("No BPT balance on the card"));
+            uint256 stakedBptBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
+            if (stakedBptBalance == 0) return (false, bytes("No staked BPT balance on the card"));
 
             uint256 deficit = dailyAllowance - balance + buffer;
-            uint256 withdrawableEure = bptBalance * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
+            uint256 withdrawableEure =
+                stakedBptBalance * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
             if (withdrawableEure < deficit) {
                 return (true, abi.encode(VirtualModule.PoolAction.CLOSE, withdrawableEure));
             } else {
@@ -305,28 +324,42 @@ contract RoboSaverVirtualModule is
             _poolDeposit(_amount);
         } else if (_action == VirtualModule.PoolAction.CLOSE) {
             _poolClose(_amount);
+        } else if (_action == VirtualModule.PoolAction.STAKE) {
+            _stakeAllBpt();
         } else if (_action == VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION) {
             _executeQueuedTx();
         }
     }
 
-    /// @notice Close the pool position by withdrawing all to $EURe
+    /// @notice Close the pool position by unstaking and withdrawing all to $EURe
     /// @param _minAmountOut The minimum amount of $EURe to withdraw from the pool
     /// @return request_ The exit pool request as per Balancer's interface
     function _poolClose(uint256 _minAmountOut) internal returns (IVault.ExitPoolRequest memory request_) {
+        /// @dev Payload 1: Unstake and claim all pending rewards from the Aura gauge
+        uint256 stakedGaugeBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
+        bytes memory unstakeAndClaimPayload =
+            abi.encodeWithSignature("withdrawAndUnwrap(uint256,bool)", stakedGaugeBalance, true);
+
+        /// @dev Payload 2: Withdraw all $EURe from the pool
         uint256[] memory minAmountsOut = new uint256[](3);
         minAmountsOut[EURE_TOKEN_BPT_INDEX] = _minAmountOut;
 
         bytes memory userData = abi.encode(
-            StablePoolUserData.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT,
-            BPT_STEUR_EURE.balanceOf(CARD),
-            EURE_TOKEN_BPT_INDEX_USER
+            StablePoolUserData.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, stakedGaugeBalance, EURE_TOKEN_BPT_INDEX_USER
         );
+
+        /// @dev Queue the transaction into the delay module
         request_ = IVault.ExitPoolRequest(poolAssets, minAmountsOut, userData, false);
         bytes memory exitPoolPayload =
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
 
-        _queueTx(address(BALANCER_VAULT), exitPoolPayload);
+        /// @dev Batch all payloads into a multicall
+        IMulticall.Call[] memory calls_ = new IMulticall.Call[](2);
+        calls_[0] = IMulticall.Call(address(AURA_GAUGE_STEUR_EURE), unstakeAndClaimPayload);
+        calls_[1] = IMulticall.Call(address(BALANCER_VAULT), exitPoolPayload);
+        bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
+
+        _queueTx(address(MULTICALL3), multicallPayload);
 
         emit PoolCloseQueued(CARD, _minAmountOut, block.timestamp);
     }
@@ -335,6 +368,14 @@ contract RoboSaverVirtualModule is
     /// @param _deficit The amount of $EURe to withdraw from the pool
     /// @return request_ The exit pool request as per Balancer's interface
     function _poolWithdrawal(uint256 _deficit) internal returns (IVault.ExitPoolRequest memory request_) {
+        /// @dev Payload 1: Unstake and claim all pending rewards from the Aura gauge
+        uint256 stakedGaugeBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
+        uint256 maxBPTAmountIn = _deficit * MAX_BPS * 1e18 / (MAX_BPS - slippage) / BPT_STEUR_EURE.getRate();
+        if (stakedGaugeBalance < maxBPTAmountIn) revert TooLowStakedBptBalance(stakedGaugeBalance, maxBPTAmountIn);
+        bytes memory unstakeAndClaimPayload =
+            abi.encodeWithSignature("withdrawAndUnwrap(uint256,bool)", maxBPTAmountIn, true);
+
+        /// @dev Payload 2: Withdraw the necessary $EURe from the pool
         uint256[] memory minAmountsOut = new uint256[](3);
         minAmountsOut[EURE_TOKEN_BPT_INDEX] = _deficit;
 
@@ -343,8 +384,6 @@ contract RoboSaverVirtualModule is
         amountsOut[1] = _deficit;
 
         /// @dev Naive calculation of the `maxBPTAmountIn` based on the bpt rate and slippage %
-        uint256 maxBPTAmountIn =
-            minAmountsOut[EURE_TOKEN_BPT_INDEX] * MAX_BPS * 1e18 / (MAX_BPS - slippage) / BPT_STEUR_EURE.getRate();
         bytes memory userData =
             abi.encode(StablePoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn);
 
@@ -352,7 +391,14 @@ contract RoboSaverVirtualModule is
         request_ = IVault.ExitPoolRequest(poolAssets, minAmountsOut, userData, false);
         bytes memory exitPoolPayload =
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
-        _queueTx(address(BALANCER_VAULT), exitPoolPayload);
+
+        /// @dev Batch all payloads into a multicall
+        IMulticall.Call[] memory calls_ = new IMulticall.Call[](2);
+        calls_[0] = IMulticall.Call(address(AURA_GAUGE_STEUR_EURE), unstakeAndClaimPayload);
+        calls_[1] = IMulticall.Call(address(BALANCER_VAULT), exitPoolPayload);
+        bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
+
+        _queueTx(MULTICALL3, multicallPayload);
 
         emit PoolWithdrawalQueued(CARD, _deficit, block.timestamp);
     }
@@ -361,9 +407,9 @@ contract RoboSaverVirtualModule is
     /// @param _surplus The amount of $EURe to deposit into the pool
     /// @return calls_ The calls needed approve $EURe and join the pool
     function _poolDeposit(uint256 _surplus) internal returns (IMulticall.Call[] memory) {
-        /// @dev Build the payload to approve our $EURe to the Balancer Vault
-        bytes memory approvalPayload =
-            abi.encodeWithSignature("approve(address,uint256)", address(BALANCER_VAULT), _surplus);
+        /// @dev Build the payload to approve our $EURe to the Aura Depositor
+        bytes memory approveEurePayload =
+            abi.encodeWithSignature("approve(address,uint256)", address(AURA_DEPOSITOR), _surplus);
 
         /// @dev Build the payload to join the pool
         uint256[] memory maxAmountsIn = new uint256[](3);
@@ -378,13 +424,19 @@ contract RoboSaverVirtualModule is
             abi.encode(StablePoolUserData.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, amountsIn, minimumBPT);
 
         IVault.JoinPoolRequest memory request = IVault.JoinPoolRequest(poolAssets, maxAmountsIn, userData, false);
-        bytes memory joinPoolPayload =
-            abi.encodeWithSelector(IVault.joinPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, CARD, request);
+        bytes memory depositAndStakePayload = abi.encodeWithSelector(
+            IRewardPoolDepositWrapper.depositSingle.selector,
+            address(AURA_GAUGE_STEUR_EURE),
+            address(EURE),
+            _surplus,
+            BPT_STEUR_EURE_POOL_ID,
+            request
+        );
 
-        /// @dev Batch approval and pool join payloads into a multicall
+        /// @dev Batch all payloads into a multicall
         IMulticall.Call[] memory calls_ = new IMulticall.Call[](2);
-        calls_[0] = IMulticall.Call(address(EURE), approvalPayload);
-        calls_[1] = IMulticall.Call(address(BALANCER_VAULT), joinPoolPayload);
+        calls_[0] = IMulticall.Call(address(EURE), approveEurePayload);
+        calls_[1] = IMulticall.Call(address(AURA_DEPOSITOR), depositAndStakePayload);
         bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
 
         _queueTx(MULTICALL3, multicallPayload);
@@ -392,6 +444,25 @@ contract RoboSaverVirtualModule is
         emit PoolDepositQueued(CARD, _surplus, block.timestamp);
 
         return calls_;
+    }
+
+    /// @notice Stake all BPT on its Aura gauge
+    function _stakeAllBpt() internal {
+        uint256 bptBalance = BPT_STEUR_EURE.balanceOf(address(CARD));
+
+        bytes memory approveBptPayload =
+            abi.encodeWithSignature("approve(address,uint256)", address(AURA_BOOSTER), bptBalance);
+        bytes memory stakePayload = abi.encodeWithSignature("depositAll(uint256,bool)", 22, true);
+
+        /// @dev Batch all payloads into a multicall
+        IMulticall.Call[] memory calls_ = new IMulticall.Call[](2);
+        calls_[0] = IMulticall.Call(address(BPT_STEUR_EURE), approveBptPayload);
+        calls_[1] = IMulticall.Call(address(AURA_BOOSTER), stakePayload);
+        bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
+
+        _queueTx(MULTICALL3, multicallPayload);
+
+        emit StakeQueued(CARD, bptBalance, block.timestamp);
     }
 
     /// @dev Execute the next transaction in the queue using the storage variable `queuedTx`
