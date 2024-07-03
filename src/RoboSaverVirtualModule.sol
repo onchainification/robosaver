@@ -19,14 +19,14 @@ import {KeeperCompatibleInterface} from "@chainlink/automation/interfaces/Keeper
 import {VirtualModule} from "./types/DataTypes.sol";
 import {Errors} from "./libraries/Errors.sol";
 
-import {VirtualModuleConstants} from "./abstracts/VirtualModuleConstants.sol";
+import {RoboSaverConstants} from "./abstracts/RoboSaverConstants.sol";
 
 /// @title RoboSaver: turn your Gnosis Pay card into an automated savings account!
 /// @author onchainification.xyz
 /// @notice Deposit and withdraw $EURe from your Gnosis Pay card to a liquidity pool
 contract RoboSaverVirtualModule is
     KeeperCompatibleInterface, // 1 inherited component
-    VirtualModuleConstants // 1 inherited component
+    RoboSaverConstants // 1 inherited component
 {
     /*//////////////////////////////////////////////////////////////////////////
                                    CONSTANTS

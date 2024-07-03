@@ -8,7 +8,7 @@ import {IBaseRewardPool4626} from "../interfaces/aura/IBaseRewardPool4626.sol";
 import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
 import "@balancer-v2/interfaces/contracts/solidity-utils/misc/IERC4626.sol";
 
-abstract contract VirtualModuleConstants {
+abstract contract RoboSaverConstants {
     uint16 constant MAX_BPS = 10_000;
 
     uint256 public constant EURE_TOKEN_BPT_INDEX = 2;
