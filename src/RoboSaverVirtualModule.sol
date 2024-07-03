@@ -29,7 +29,7 @@ contract RoboSaverVirtualModule is
     RoboSaverConstants // 1 inherited component
 {
     /*//////////////////////////////////////////////////////////////////////////
-                                   CONSTANTS
+                                  IMMUTABLES
     //////////////////////////////////////////////////////////////////////////*/
     address public immutable CARD;
 
