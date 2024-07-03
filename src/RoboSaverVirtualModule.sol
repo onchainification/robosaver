@@ -97,12 +97,6 @@ contract RoboSaverVirtualModule is
     /// @param timestamp The timestamp of the transaction
     event PoolDepositQueued(address indexed safe, uint256 amount, uint256 timestamp);
 
-    /// @notice Emitted when a transaction to unstake and claim all pending rewards from the Aura gauge has been queued up
-    /// @param safe The address of the card
-    /// @param amount The amount of bpt to unstake
-    /// @param timestamp The timestamp of the transaction
-    event GaugeUnstakeAndClaimQueued(address indexed safe, uint256 amount, uint256 timestamp);
-
     /// @notice Emitted when a transaction to stake the residual bpt on the card has been queued up
     /// @param safe The address of the card
     /// @param amount The amount of bpt that was staked
@@ -337,8 +331,6 @@ contract RoboSaverVirtualModule is
             _poolDeposit(_amount);
         } else if (_action == VirtualModule.PoolAction.CLOSE) {
             if (BPT_STEUR_EURE.balanceOf(CARD) == 0) {
-                _unstakeAndClaim();
-            } else {
                 _poolClose(_amount);
             }
         } else if (_action == VirtualModule.PoolAction.STAKE) {
@@ -348,23 +340,35 @@ contract RoboSaverVirtualModule is
         }
     }
 
-    /// @notice Close the pool position by withdrawing all to $EURe
+    /// @notice Close the pool position by unstaking and withdrawing all to $EURe
     /// @param _minAmountOut The minimum amount of $EURe to withdraw from the pool
     /// @return request_ The exit pool request as per Balancer's interface
     function _poolClose(uint256 _minAmountOut) internal returns (IVault.ExitPoolRequest memory request_) {
+        /// @dev Payload 1: Unstake and claim all pending rewards from the Aura gauge
+        uint256 stakedGaugeBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
+        bytes memory unstakeAndClaimPayload =
+            abi.encodeWithSignature("withdrawAndUnwrap(uint256,bool)", stakedGaugeBalance, true);
+
+        /// @dev Payload 2: Withdraw all $EURe from the pool
         uint256[] memory minAmountsOut = new uint256[](3);
         minAmountsOut[EURE_TOKEN_BPT_INDEX] = _minAmountOut;
 
         bytes memory userData = abi.encode(
-            StablePoolUserData.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT,
-            BPT_STEUR_EURE.balanceOf(CARD),
-            EURE_TOKEN_BPT_INDEX_USER
+            StablePoolUserData.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, stakedGaugeBalance, EURE_TOKEN_BPT_INDEX_USER
         );
+
+        /// @dev Queue the transaction into the delay module
         request_ = IVault.ExitPoolRequest(poolAssets, minAmountsOut, userData, false);
         bytes memory exitPoolPayload =
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
 
-        _queueTx(address(BALANCER_VAULT), exitPoolPayload);
+        /// @dev Batch all payloads into a multicall
+        IMulticall.Call[] memory calls_ = new IMulticall.Call[](2);
+        calls_[0] = IMulticall.Call(address(AURA_GAUGE_STEUR_EURE), unstakeAndClaimPayload);
+        calls_[1] = IMulticall.Call(address(BALANCER_VAULT), exitPoolPayload);
+        bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
+
+        _queueTx(address(MULTICALL3), multicallPayload);
 
         emit PoolCloseQueued(CARD, _minAmountOut, block.timestamp);
     }
@@ -447,17 +451,6 @@ contract RoboSaverVirtualModule is
         emit PoolDepositQueued(CARD, _surplus, block.timestamp);
 
         return calls_;
-    }
-
-    /// @notice Unstake and claim all pending rewards from the Aura gauge
-    function _unstakeAndClaim() internal {
-        uint256 gaugeBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
-        _queueTx(
-            address(AURA_GAUGE_STEUR_EURE),
-            abi.encodeWithSignature("withdrawAndUnwrap(uint256,bool)", gaugeBalance, true)
-        );
-
-        emit GaugeUnstakeAndClaimQueued(CARD, gaugeBalance, block.timestamp);
     }
 
     /// @notice Stake all BPT on its Aura gauge
