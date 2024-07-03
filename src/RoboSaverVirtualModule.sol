@@ -5,7 +5,6 @@ import {IMulticall} from "@gnosispay-kit/interfaces/IMulticall.sol";
 import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
 
 import {IRewardPoolDepositWrapper} from "./interfaces/aura/IRewardPoolDepositWrapper.sol";
-import {IBaseRewardPool4626} from "./interfaces/aura/IBaseRewardPool4626.sol";
 import {IBoosterLite} from "./interfaces/aura/IBoosterLite.sol";
 import {IComposableStablePool} from "./interfaces/balancer/IComposableStablePool.sol";
 import {IDelayModifier} from "./interfaces/delayModule/IDelayModifier.sol";
@@ -97,7 +96,7 @@ contract RoboSaverVirtualModule is
 
     /// @notice Emitted when a transaction to stake the residual bpt on the card has been queued up
     /// @param safe The address of the card
-    /// @param amount The amount of bpt that was staked
+    /// @param amount The amount of bpt that is being staked
     /// @param timestamp The timestamp of the transaction
     event StakeQueued(address indexed safe, uint256 amount, uint256 timestamp);
 
@@ -145,6 +144,7 @@ contract RoboSaverVirtualModule is
     error ZeroUintValue();
 
     error TooHighBps();
+    error TooLowStakedBptBalance(uint256 stakedGaugeBalance, uint256 bptRequiredBalance);
 
     error ExternalTxIsQueued();
     error VirtualModuleNotEnabled();
@@ -369,7 +369,9 @@ contract RoboSaverVirtualModule is
     /// @return request_ The exit pool request as per Balancer's interface
     function _poolWithdrawal(uint256 _deficit) internal returns (IVault.ExitPoolRequest memory request_) {
         /// @dev Payload 1: Unstake and claim all pending rewards from the Aura gauge
+        uint256 stakedGaugeBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
         uint256 maxBPTAmountIn = _deficit * MAX_BPS * 1e18 / (MAX_BPS - slippage) / BPT_STEUR_EURE.getRate();
+        if (stakedGaugeBalance < maxBPTAmountIn) revert TooLowStakedBptBalance(stakedGaugeBalance, maxBPTAmountIn);
         bytes memory unstakeAndClaimPayload =
             abi.encodeWithSignature("withdrawAndUnwrap(uint256,bool)", maxBPTAmountIn, true);
 
