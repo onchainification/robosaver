@@ -23,6 +23,8 @@ contract ClosePoolTest is BaseFixture {
         vm.prank(address(safe));
         roboModule.setBuffer(500e18);
 
+        uint256 eureBeforeCloseBalance = IERC20(EURE).balanceOf(address(safe));
+
         // this should now trigger a pool close
         // first part: unstake and claim rewards
         (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
@@ -33,28 +35,16 @@ contract ClosePoolTest is BaseFixture {
         assertEq(uint8(_action), uint8(VirtualModule.PoolAction.CLOSE));
         assertEq(IERC20(BPT_STEUR_EURE).balanceOf(address(safe)), 0, "clean up residual bpt first!");
 
-        // exec it and check if stake is gone
+        // exec it and check if stake and bpt are gone
         vm.startPrank(keeper);
         roboModule.performUpkeep(execPayload);
         vm.warp(block.timestamp + COOLDOWN_PERIOD);
         roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
 
         assertEq(IERC20(AURA_GAUGE_STEUR_EURE).balanceOf(address(safe)), 0);
-        assertGt(IERC20(BPT_STEUR_EURE).balanceOf(address(safe)), 0);
+        assertEq(IERC20(BPT_STEUR_EURE).balanceOf(address(safe)), 0);
+        assertGe(IERC20(EURE).balanceOf(address(safe)), eureBeforeCloseBalance + _amount);
 
         // @todo check for claimed rewards (bal, aura)
-
-        // now ready to trigger part 2 of the pool close; withdraw from bpt
-        (canExec, execPayload) = roboModule.checkUpkeep("");
-        assertTrue(canExec);
-        (_action, _amount) = abi.decode(execPayload, (VirtualModule.PoolAction, uint256));
-        assertEq(uint8(_action), uint8(VirtualModule.PoolAction.CLOSE));
-
-        // exec it and check if bpt is gone
-        vm.startPrank(keeper);
-        roboModule.performUpkeep(execPayload);
-        vm.warp(block.timestamp + COOLDOWN_PERIOD);
-        roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
-        assertEq(IERC20(BPT_STEUR_EURE).balanceOf(address(safe)), 0);
     }
 }

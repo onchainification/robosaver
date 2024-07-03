@@ -15,6 +15,7 @@ library Errors {
     error ZeroUintValue();
 
     error TooHighBps();
+    error TooLowStakedBptBalance(uint256 stakedGaugeBalance, uint256 bptRequiredBalance);
 
     error ExternalTxIsQueued();
     error VirtualModuleNotEnabled();

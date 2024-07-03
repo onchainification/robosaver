@@ -9,6 +9,3 @@ coverage:
   status:
     project: off
     patch: off
-ignore: # exclude these folders from the report
-    - "script"
-    - "test"
