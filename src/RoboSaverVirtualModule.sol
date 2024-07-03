@@ -6,7 +6,6 @@ import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
 
 import {IRewardPoolDepositWrapper} from "./interfaces/aura/IRewardPoolDepositWrapper.sol";
 import {IBaseRewardPool4626} from "./interfaces/aura/IBaseRewardPool4626.sol";
-import {IVoterProxyLite} from "./interfaces/aura/IVoterProxyLite.sol";
 import {IBoosterLite} from "./interfaces/aura/IBoosterLite.sol";
 import {IComposableStablePool} from "./interfaces/balancer/IComposableStablePool.sol";
 import {IDelayModifier} from "./interfaces/delayModule/IDelayModifier.sol";
@@ -45,12 +44,11 @@ contract RoboSaverVirtualModule is
 
     IERC20 immutable STEUR;
     IERC20 immutable EURE;
+    IERC4626 constant AURA_GAUGE_STEUR_EURE = IERC4626(0x408883E983695DeC78CF66480e6eFeF907a73c21);
 
     IRewardPoolDepositWrapper constant AURA_DEPOSITOR =
         IRewardPoolDepositWrapper(0x0Fec3d212BcC29eF3E505B555D7a7343DF0B7F76);
     IBoosterLite constant AURA_BOOSTER = IBoosterLite(0x98Ef32edd24e2c92525E59afc4475C1242a30184);
-    IVoterProxyLite constant AURA_PROXY = IVoterProxyLite(0xC181Edc719480bd089b94647c2Dc504e2700a2B0);
-    IBaseRewardPool4626 constant AURA_GAUGE_STEUR_EURE = IBaseRewardPool4626(0x408883E983695DeC78CF66480e6eFeF907a73c21);
     IComposableStablePool immutable BPT_STEUR_EURE;
 
     address public immutable FACTORY;
@@ -270,11 +268,8 @@ contract RoboSaverVirtualModule is
             return (true, abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
         }
 
-        /// @dev Only restake bpt if it is a residual of a partial withdrawal; ie if there is also a staked position
-        /// @dev If there is no staked position then the bpt is part of the pool closure action!
         uint256 bptBalance = BPT_STEUR_EURE.balanceOf(CARD);
-        uint256 stakedBptBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
-        if (bptBalance > 0 && stakedBptBalance > 0) {
+        if (bptBalance > 0) {
             return (true, abi.encode(VirtualModule.PoolAction.STAKE, 0));
         }
 
@@ -283,14 +278,12 @@ contract RoboSaverVirtualModule is
 
         if (balance < dailyAllowance) {
             /// @notice there is a deficit; we need to withdraw from the pool
-            /// @dev we consider both balances because we might be in the process of closing the pool
-            /// @dev in that case we still want to reach the PoolAction.CLOSE conclusion, even though there is no more staked bpt
-            uint256 totalBptBalance = bptBalance + stakedBptBalance;
-            if (totalBptBalance == 0) return (false, bytes("No staked BPT balance on the card"));
+            uint256 stakedBptBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
+            if (stakedBptBalance == 0) return (false, bytes("No staked BPT balance on the card"));
 
             uint256 deficit = dailyAllowance - balance + buffer;
             uint256 withdrawableEure =
-                totalBptBalance * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
+                stakedBptBalance * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
             if (withdrawableEure < deficit) {
                 return (true, abi.encode(VirtualModule.PoolAction.CLOSE, withdrawableEure));
             } else {
@@ -330,9 +323,7 @@ contract RoboSaverVirtualModule is
         } else if (_action == VirtualModule.PoolAction.DEPOSIT) {
             _poolDeposit(_amount);
         } else if (_action == VirtualModule.PoolAction.CLOSE) {
-            if (BPT_STEUR_EURE.balanceOf(CARD) == 0) {
-                _poolClose(_amount);
-            }
+            _poolClose(_amount);
         } else if (_action == VirtualModule.PoolAction.STAKE) {
             _stakeAllBpt();
         } else if (_action == VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION) {
@@ -433,7 +424,7 @@ contract RoboSaverVirtualModule is
         IVault.JoinPoolRequest memory request = IVault.JoinPoolRequest(poolAssets, maxAmountsIn, userData, false);
         bytes memory depositAndStakePayload = abi.encodeWithSelector(
             IRewardPoolDepositWrapper.depositSingle.selector,
-            AURA_GAUGE_STEUR_EURE,
+            address(AURA_GAUGE_STEUR_EURE),
             address(EURE),
             _surplus,
             BPT_STEUR_EURE_POOL_ID,
