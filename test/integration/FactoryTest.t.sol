@@ -8,8 +8,9 @@ import {Roles} from "@roles-module/Roles.sol";
 
 import {IKeeperRegistrar} from "../../src/interfaces/chainlink/IKeeperRegistrar.sol";
 
+import {Errors} from ".../../src/libraries/Errors.sol";
+
 import {RoboSaverVirtualModule} from "../../src/RoboSaverVirtualModule.sol";
-import {RoboSaverVirtualModuleFactory} from "../../src/RoboSaverVirtualModuleFactory.sol";
 
 contract FactoryTest is BaseFixture {
     Delay dummyDelayModule;
@@ -23,18 +24,10 @@ contract FactoryTest is BaseFixture {
 
         vm.startPrank(address(safe));
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                RoboSaverVirtualModuleFactory.CallerNotMatchingAvatar.selector, "DelayModule", address(safe)
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(Errors.CallerNotMatchingAvatar.selector, "DelayModule", address(safe)));
         roboModuleFactory.createVirtualModule(address(dummyRolesModule), address(rolesModule), EURE_BUFFER, SLIPPAGE);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                RoboSaverVirtualModuleFactory.CallerNotMatchingAvatar.selector, "RolesModule", address(safe)
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(Errors.CallerNotMatchingAvatar.selector, "RolesModule", address(safe)));
         roboModuleFactory.createVirtualModule(address(delayModule), address(dummyRolesModule), EURE_BUFFER, SLIPPAGE);
         vm.stopPrank();
     }

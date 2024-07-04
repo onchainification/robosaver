@@ -3,24 +3,26 @@ pragma solidity ^0.8.25;
 
 import {BaseFixture} from "../BaseFixture.sol";
 
+import {Errors} from ".../../src/libraries/Errors.sol";
+
 import {RoboSaverVirtualModule} from "../../src/RoboSaverVirtualModule.sol";
 
 contract SettersTest is BaseFixture {
     function test_RevertWhen_BufferZeroValue() public {
         vm.prank(roboModule.CARD());
-        vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.ZeroUintValue.selector));
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroUintValue.selector));
         roboModule.setBuffer(0);
     }
 
     function test_RevertWhen_KeeperZeroAddress() public {
         vm.prank(roboModule.CARD());
-        vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.ZeroAddressValue.selector));
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddressValue.selector));
         roboModule.setKeeper(address(0));
     }
 
     function test_RevertWhen_SlippageTooHigh() public {
         vm.prank(roboModule.CARD());
-        vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.TooHighBps.selector));
+        vm.expectRevert(abi.encodeWithSelector(Errors.TooHighBps.selector));
         roboModule.setSlippage(10_001);
     }
 
@@ -28,15 +30,15 @@ contract SettersTest is BaseFixture {
         address randomCaller = address(4343534);
 
         vm.prank(randomCaller);
-        vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.NotAdmin.selector, randomCaller));
+        vm.expectRevert(abi.encodeWithSelector(Errors.NotAdmin.selector, randomCaller));
         roboModule.setBuffer(1000);
 
         vm.prank(randomCaller);
-        vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.NeitherAdminNorFactory.selector, randomCaller));
+        vm.expectRevert(abi.encodeWithSelector(Errors.NeitherAdminNorFactory.selector, randomCaller));
         roboModule.setKeeper(address(554));
 
         vm.prank(randomCaller);
-        vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.NotAdmin.selector, randomCaller));
+        vm.expectRevert(abi.encodeWithSelector(Errors.NotAdmin.selector, randomCaller));
         roboModule.setSlippage(1);
     }
 

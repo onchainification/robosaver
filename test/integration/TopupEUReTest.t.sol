@@ -53,13 +53,13 @@ contract TopupTest is BaseFixture {
         );
         assertEq(
             address(uint160(uint256(entries[1].topics[1]))),
-            address(roboModule.MULTICALL3()),
+            address(MULTICALL3),
             "Target: expected to be the MULTICALL3 address"
         );
 
         vm.warp(block.timestamp + COOLDOWN_PERIOD);
 
-        _assertPreStorageValuesNextTxExec(address(roboModule.MULTICALL3()), abi.decode(entries[1].data, (bytes)));
+        _assertPreStorageValuesNextTxExec(address(MULTICALL3), abi.decode(entries[1].data, (bytes)));
 
         vm.prank(keeper);
         roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));

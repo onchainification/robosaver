@@ -4,13 +4,13 @@ pragma solidity ^0.8.25;
 import {BaseFixture} from "../BaseFixture.sol";
 
 import {VirtualModule} from "../../src/types/DataTypes.sol";
-import {RoboSaverVirtualModule} from "../../src/RoboSaverVirtualModule.sol";
+import {Errors} from ".../../src/libraries/Errors.sol";
 
 contract AdjustPoolTest is BaseFixture {
     function test_ReverWhen_NoKeeper() public {
         address caller = address(54654546);
         vm.prank(caller);
-        vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.NotKeeper.selector, caller));
+        vm.expectRevert(abi.encodeWithSelector(Errors.NotKeeper.selector, caller));
         roboModule.performUpkeep("");
     }
 
@@ -23,7 +23,7 @@ contract AdjustPoolTest is BaseFixture {
 
         // keeper trying to exec for no reason `adjustPool` while checker is false
         vm.prank(roboModule.keeper());
-        vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.ExternalTxIsQueued.selector));
+        vm.expectRevert(abi.encodeWithSelector(Errors.ExternalTxIsQueued.selector));
         roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.DEPOSIT, 2e18));
     }
 
@@ -33,7 +33,7 @@ contract AdjustPoolTest is BaseFixture {
         delayModule.disableModule(address(safe), address(roboModule));
 
         vm.prank(roboModule.keeper());
-        vm.expectRevert(abi.encodeWithSelector(RoboSaverVirtualModule.VirtualModuleNotEnabled.selector));
+        vm.expectRevert(abi.encodeWithSelector(Errors.VirtualModuleNotEnabled.selector));
         roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.DEPOSIT, 2e18));
     }
 

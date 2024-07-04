@@ -55,7 +55,7 @@ contract CheckerTest is BaseFixture {
             abi.encodeWithSelector(IERC20.balanceOf.selector, address(safe)),
             abi.encode(0)
         );
-        assertEq(IERC20(AURA_GAUGE_STEUR_EURE).balanceOf(address(safe)), 0);
+        assertEq(AURA_GAUGE_STEUR_EURE.balanceOf(address(safe)), 0);
 
         (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
         vm.clearMockedCalls();
