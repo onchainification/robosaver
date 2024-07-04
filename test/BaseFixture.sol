@@ -129,7 +129,7 @@ contract BaseFixture is Test, Constants {
         // balancer
         vm.label(BPT_STEUR_EURE, "BPT_STEUR_EURE");
         vm.label(address(AURA_GAUGE_STEUR_EURE), "AURA_GAUGE_STEUR_EURE");
-        vm.label(address(roboModule.BALANCER_VAULT()), "BALANCER_VAULT");
+        vm.label(address(BALANCER_VAULT), "BALANCER_VAULT");
         // chainlink
         vm.label(address(CL_REGISTRY), "CL_REGISTRY");
         vm.label(address(CL_REGISTRAR), "CL_REGISTRAR");
@@ -223,7 +223,7 @@ contract BaseFixture is Test, Constants {
 
     function _getBptOutExpected(uint256 _amount) internal returns (uint256 bptOutExpected_) {
         uint256[] memory maxAmountsIn = new uint256[](3);
-        maxAmountsIn[roboModule.EURE_TOKEN_BPT_INDEX()] = _amount;
+        maxAmountsIn[EURE_TOKEN_BPT_INDEX] = _amount;
 
         uint256[] memory amountsIn = new uint256[](2);
         amountsIn[1] = _amount;
@@ -240,9 +240,8 @@ contract BaseFixture is Test, Constants {
             false
         );
 
-        (bptOutExpected_,) = BALANCER_QUERIES.queryJoin(
-            roboModule.BPT_STEUR_EURE_POOL_ID(), roboModule.CARD(), roboModule.CARD(), request
-        );
+        (bptOutExpected_,) =
+            BALANCER_QUERIES.queryJoin(BPT_STEUR_EURE_POOL_ID, roboModule.CARD(), roboModule.CARD(), request);
 
         // naive: sanity check
         assertGt(bptOutExpected_, 0);
@@ -250,7 +249,7 @@ contract BaseFixture is Test, Constants {
 
     function _getMaxBptInExpected(uint256 _amount, uint256 _bptBalance) internal returns (uint256 bptInExpected_) {
         uint256[] memory minAmountsOut = new uint256[](3);
-        minAmountsOut[roboModule.EURE_TOKEN_BPT_INDEX()] = _amount;
+        minAmountsOut[EURE_TOKEN_BPT_INDEX] = _amount;
 
         uint256[] memory amountsOut = new uint256[](2);
         amountsOut[1] = _amount;
@@ -267,9 +266,8 @@ contract BaseFixture is Test, Constants {
             false
         );
 
-        (bptInExpected_,) = BALANCER_QUERIES.queryExit(
-            roboModule.BPT_STEUR_EURE_POOL_ID(), roboModule.CARD(), roboModule.CARD(), request
-        );
+        (bptInExpected_,) =
+            BALANCER_QUERIES.queryExit(BPT_STEUR_EURE_POOL_ID, roboModule.CARD(), roboModule.CARD(), request);
 
         // naive: sanity check
         assertGt(bptInExpected_, 0);

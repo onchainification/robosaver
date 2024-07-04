@@ -48,14 +48,12 @@ contract TopupBptTest is BaseFixture {
             "Topic: not matching 0x1e06c48e3eae1d5087ad1d103fe5666fb3fd180f582006fb14e9635c596736d7"
         );
         assertEq(
-            address(uint160(uint256(entries[1].topics[1]))),
-            roboModule.MULTICALL3(),
-            "Target: expected to be the MULTICALL3 address"
+            address(uint160(uint256(entries[1].topics[1]))), MULTICALL3, "Target: expected to be the MULTICALL3 address"
         );
 
         vm.warp(block.timestamp + COOLDOWN_PERIOD);
 
-        _assertPreStorageValuesNextTxExec(roboModule.MULTICALL3(), abi.decode(entries[1].data, (bytes)));
+        _assertPreStorageValuesNextTxExec(MULTICALL3, abi.decode(entries[1].data, (bytes)));
 
         // two actions:
         // 1. eure exact appproval to `BALANCER_VAULT`
