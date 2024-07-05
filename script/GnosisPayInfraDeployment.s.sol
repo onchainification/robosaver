@@ -16,7 +16,6 @@ import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
 /// 2. {DelayModule}
 /// 3. {Bouncer}
 /// 4. {RoboSaverVirtualModuleFactory}
-/// 5. {RoboSaverVirtualModule}
 contract GnosisPayInfraDeployment is Script {
     // safe target
     address constant GNOSIS_SAFE = 0xa4A4a4879dCD3289312884e9eC74Ed37f9a92a55;
@@ -67,12 +66,7 @@ contract GnosisPayInfraDeployment is Script {
         // 4. {RoboSaverVirtualModuleFactory}
         roboModuleFactory = new RoboSaverVirtualModuleFactory();
 
-        // 5. {RoboSaverVirtualModule}
-        roboModule = new RoboSaverVirtualModule(
-            address(roboModuleFactory), address(delayModule), address(rolesModule), 50e18, 200
-        );
-
-        // 6. {Allowance config}
+        // 5. {Allowance config}
         rolesModule.setAllowance(
             SET_ALLOWANCE_KEY,
             MIN_EURE_ALLOWANCE,
