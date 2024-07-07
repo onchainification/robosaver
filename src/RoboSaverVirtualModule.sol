@@ -452,7 +452,8 @@ contract RoboSaverVirtualModule is
         emit StakeQueued(CARD, bptBalance, block.timestamp);
     }
 
-    // @todo
+    /// @notice Internal function of `shutdown()`
+    /// @param _stakedBptBalance The total amount of BPT staked on the Aura gauge
     function _shutdown(uint256 _stakedBptBalance) internal {
         /// @dev Payload 1: Unstake and claim all pending rewards from the Aura gauge
         bytes memory unstakeAndClaimPayload =
