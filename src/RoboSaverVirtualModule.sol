@@ -555,11 +555,11 @@ contract RoboSaverVirtualModule is
     /// @return prevModule_ The address of the previous module relative to `_start`
     function _getPrevModule(address _start) internal view returns (address prevModule_) {
         /// @dev Retrieve the module _start points to in the linked list
-        (, address nextModule) = delayModule.getModulesPaginated(_start, 1);
-        if (nextModule == address(this)) {
+        (address[] memory nextModules,) = delayModule.getModulesPaginated(_start, 1);
+        if (nextModules[0] == address(this)) {
             return _start;
         }
-        prevModule_ = _getPrevModule(nextModule);
+        prevModule_ = _getPrevModule(nextModules[0]);
     }
 
     function _setSlippage(uint16 _slippage) internal {
