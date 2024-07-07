@@ -475,7 +475,8 @@ contract RoboSaverVirtualModule is
         /// @dev Payload 3: Disable the virtual module
         /// @dev address(0x1) is the sentinel address in the DelayModifier's linked list
         address prevModule = _getPrevModule(address(0x1));
-        bytes memory disableModulePayload = abi.encodeWithSignature("disableModule()", prevModule, address(this));
+        bytes memory disableModulePayload =
+            abi.encodeWithSignature("disableModule(address,address)", prevModule, address(this));
 
         /// @dev Batch all payloads into a multicall
         IMulticall.Call[] memory calls_ = new IMulticall.Call[](3);
