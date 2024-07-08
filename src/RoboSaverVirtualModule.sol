@@ -3,11 +3,11 @@ pragma solidity ^0.8.25;
 
 import {IMulticall} from "@gnosispay-kit/interfaces/IMulticall.sol";
 import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
+import {IDelayModifier} from "@gnosispay-kit/interfaces/IDelayModifier.sol";
 
 import {IRewardPoolDepositWrapper} from "./interfaces/aura/IRewardPoolDepositWrapper.sol";
 import {IBoosterLite} from "./interfaces/aura/IBoosterLite.sol";
 import {IComposableStablePool} from "./interfaces/balancer/IComposableStablePool.sol";
-import {IDelayModifier} from "./interfaces/delayModule/IDelayModifier.sol";
 
 import {IAsset} from "@balancer-v2/interfaces/contracts/vault/IAsset.sol";
 import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
@@ -495,11 +495,8 @@ contract RoboSaverVirtualModule is
     function _executeQueuedTx() internal {
         address cachedTarget = queuedTx.target;
         bytes memory cachedPayload = queuedTx.payload;
-        IDelayModifier.DelayModuleOperation operation = cachedTarget == MULTICALL3
-            ? IDelayModifier.DelayModuleOperation.DelegateCall
-            : IDelayModifier.DelayModuleOperation.Call;
-
-        delayModule.executeNextTx(cachedTarget, 0, cachedPayload, operation);
+        /// @dev since all actions go through multicall3, operation is set to 1 (DelegateCall)
+        delayModule.executeNextTx(cachedTarget, 0, cachedPayload, 1);
 
         emit AdjustPoolTxExecuted(cachedTarget, cachedPayload, queuedTx.nonce, block.timestamp);
 
@@ -518,10 +515,8 @@ contract RoboSaverVirtualModule is
     /// @param _target The address of the target of the transaction
     /// @param _payload The payload of the transaction
     function _queueTx(address _target, bytes memory _payload) internal {
-        IDelayModifier.DelayModuleOperation operation = _target == MULTICALL3
-            ? IDelayModifier.DelayModuleOperation.DelegateCall
-            : IDelayModifier.DelayModuleOperation.Call;
-        delayModule.execTransactionFromModule(_target, 0, _payload, operation);
+        /// @dev since all actions go through multicall3, operation is set to 1 (DelegateCall)
+        delayModule.execTransactionFromModule(_target, 0, _payload, 1);
         uint256 cachedQueueNonce = delayModule.queueNonce();
         queuedTx = VirtualModule.QueuedTx(cachedQueueNonce, _target, _payload);
 
