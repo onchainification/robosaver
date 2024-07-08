@@ -12,7 +12,7 @@ contract InformativeMethodsTest is BaseFixture {
     }
 
     function testVersion() public view {
-        assertEq(roboModule.version(), "v0.0.2-alpha2", "Version: not matching");
+        assertEq(roboModule.version(), "v0.1.0", "Version: not matching");
     }
 
     /// @dev include here any other method which may be simply informative. e.g: assets, balances etc
