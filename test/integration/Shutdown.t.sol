@@ -9,11 +9,11 @@ import {VirtualModule} from "../../src/types/DataTypes.sol";
 contract ShutdownTest is BaseFixture {
     function testShutdown() public {
         // create a residual bpt balance to confirm it also gets processed in the shutdown
-        deal(BPT_STEUR_EURE, address(roboModule.CARD()), 1e18);
+        deal(BPT_STEUR_EURE, roboModule.CARD(), 1e18);
 
         // confirm there are (staked) pool positions
-        assertGt(AURA_GAUGE_STEUR_EURE.balanceOf(address(roboModule.CARD())), 0);
-        assertGt(IERC20(BPT_STEUR_EURE).balanceOf(address(roboModule.CARD())), 0);
+        assertGt(AURA_GAUGE_STEUR_EURE.balanceOf(roboModule.CARD()), 0);
+        assertGt(IERC20(BPT_STEUR_EURE).balanceOf(roboModule.CARD()), 0);
         uint256 initialEureBalance = IERC20(EURE).balanceOf(roboModule.CARD());
 
         // trigger the shutdown and execute it on the delay module
@@ -24,8 +24,8 @@ contract ShutdownTest is BaseFixture {
         roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
 
         // confirm all (staked) pool positions are now gone and the $eure balance increased
-        assertEq(AURA_GAUGE_STEUR_EURE.balanceOf(address(roboModule.CARD())), 0);
-        assertEq(IERC20(BPT_STEUR_EURE).balanceOf(address(roboModule.CARD())), 0);
+        assertEq(AURA_GAUGE_STEUR_EURE.balanceOf(roboModule.CARD()), 0);
+        assertEq(IERC20(BPT_STEUR_EURE).balanceOf(roboModule.CARD()), 0);
         assertGt(IERC20(EURE).balanceOf(roboModule.CARD()), initialEureBalance);
 
         // confirm the virtual module is turned off

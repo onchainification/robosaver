@@ -344,7 +344,7 @@ contract RoboSaverVirtualModule is
         calls_[1] = IMulticall.Call(address(BALANCER_VAULT), exitPoolPayload);
         bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
 
-        _queueTx(address(MULTICALL3), multicallPayload);
+        _queueTx(MULTICALL3, multicallPayload);
 
         emit PoolCloseQueued(CARD, _minAmountOut, block.timestamp);
     }
@@ -435,7 +435,7 @@ contract RoboSaverVirtualModule is
 
     /// @notice Stake all BPT on its Aura gauge
     function _stakeAllBpt() internal {
-        uint256 bptBalance = BPT_STEUR_EURE.balanceOf(address(CARD));
+        uint256 bptBalance = BPT_STEUR_EURE.balanceOf(CARD);
 
         bytes memory approveBptPayload =
             abi.encodeWithSignature("approve(address,uint256)", address(AURA_BOOSTER), bptBalance);
