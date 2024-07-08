@@ -97,7 +97,7 @@ contract RoboSaverVirtualModuleFactory is
             encryptedEmail: "",
             upkeepContract: _virtualModule,
             gasLimit: 2_000_000,
-            adminAddress: address(this), // @note the factory is the admin
+            adminAddress: 0xDb1b024855AC829681818aa7ED021f65509321b5, // @note temporarily eoa for testing
             triggerType: 0,
             checkData: "",
             triggerConfig: "",
