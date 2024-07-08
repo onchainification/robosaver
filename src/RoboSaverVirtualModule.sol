@@ -3,11 +3,11 @@ pragma solidity ^0.8.25;
 
 import {IMulticall} from "@gnosispay-kit/interfaces/IMulticall.sol";
 import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
+import {IDelayModifier} from "@gnosispay-kit/interfaces/IDelayModifier.sol";
 
 import {IRewardPoolDepositWrapper} from "./interfaces/aura/IRewardPoolDepositWrapper.sol";
 import {IBoosterLite} from "./interfaces/aura/IBoosterLite.sol";
 import {IComposableStablePool} from "./interfaces/balancer/IComposableStablePool.sol";
-import {IDelayModifier} from "./interfaces/delayModule/IDelayModifier.sol";
 
 import {IAsset} from "@balancer-v2/interfaces/contracts/vault/IAsset.sol";
 import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
@@ -87,6 +87,12 @@ contract RoboSaverVirtualModule is
     /// @param amount The amount of bpt that is being staked
     /// @param timestamp The timestamp of the transaction
     event StakeQueued(address indexed safe, uint256 amount, uint256 timestamp);
+
+    /// @notice Emitted when a transaction to shutdown RoboSaver has been queued up
+    /// @param safe The address of the card
+    /// @param amount The minimum amount of $EURe to receive from the pool closure
+    /// @param timestamp The timestamp of the transaction
+    event PoolShutdownQueued(address indexed safe, uint256 amount, uint256 timestamp);
 
     /// @notice Emitted when an adjustment pool transaction is being queued up
     /// @dev Event is leverage by off-chain service to execute the queued transaction
@@ -270,11 +276,20 @@ contract RoboSaverVirtualModule is
         return (false, bytes("Neither deficit nor surplus; no action needed"));
     }
 
+    /// @notice The actual execution of the action determined by the `checkUpkeep` method
+    /// @param _performData Decodes into the exact action to take and its corresponding amount
     function performUpkeep(bytes calldata _performData) external override onlyKeeper {
-        // decode `_performData`
         (VirtualModule.PoolAction action, uint256 amount) =
             abi.decode(_performData, (VirtualModule.PoolAction, uint256));
         _adjustPool(action, amount);
+    }
+
+    /// @notice Turn off the RoboSaver; withdraw all funds and disable the virtual module
+    function shutdown() external onlyAdmin {
+        uint256 stakedBptBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
+        if (stakedBptBalance > 0) {
+            _adjustPool(VirtualModule.PoolAction.SHUTDOWN, stakedBptBalance);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -297,6 +312,8 @@ contract RoboSaverVirtualModule is
             _poolClose(_amount);
         } else if (_action == VirtualModule.PoolAction.STAKE) {
             _stakeAllBpt();
+        } else if (_action == VirtualModule.PoolAction.SHUTDOWN) {
+            _shutdown(_amount);
         } else if (_action == VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION) {
             _executeQueuedTx();
         }
@@ -307,19 +324,16 @@ contract RoboSaverVirtualModule is
     /// @return request_ The exit pool request as per Balancer's interface
     function _poolClose(uint256 _minAmountOut) internal returns (IVault.ExitPoolRequest memory request_) {
         /// @dev Payload 1: Unstake and claim all pending rewards from the Aura gauge
-        uint256 stakedGaugeBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
+        uint256 stakedBptBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
         bytes memory unstakeAndClaimPayload =
-            abi.encodeWithSignature("withdrawAndUnwrap(uint256,bool)", stakedGaugeBalance, true);
+            abi.encodeWithSignature("withdrawAndUnwrap(uint256,bool)", stakedBptBalance, true);
 
         /// @dev Payload 2: Withdraw all $EURe from the pool
         uint256[] memory minAmountsOut = new uint256[](3);
         minAmountsOut[EURE_TOKEN_BPT_INDEX] = _minAmountOut;
-
         bytes memory userData = abi.encode(
-            StablePoolUserData.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, stakedGaugeBalance, EURE_TOKEN_BPT_INDEX_USER
+            StablePoolUserData.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, stakedBptBalance, EURE_TOKEN_BPT_INDEX_USER
         );
-
-        /// @dev Queue the transaction into the delay module
         request_ = IVault.ExitPoolRequest(poolAssets, minAmountsOut, userData, false);
         bytes memory exitPoolPayload =
             abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
@@ -330,7 +344,7 @@ contract RoboSaverVirtualModule is
         calls_[1] = IMulticall.Call(address(BALANCER_VAULT), exitPoolPayload);
         bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
 
-        _queueTx(address(MULTICALL3), multicallPayload);
+        _queueTx(MULTICALL3, multicallPayload);
 
         emit PoolCloseQueued(CARD, _minAmountOut, block.timestamp);
     }
@@ -340,10 +354,10 @@ contract RoboSaverVirtualModule is
     /// @return request_ The exit pool request as per Balancer's interface
     function _poolWithdrawal(uint256 _deficit) internal returns (IVault.ExitPoolRequest memory request_) {
         /// @dev Payload 1: Unstake and claim all pending rewards from the Aura gauge
-        uint256 stakedGaugeBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
+        uint256 stakedBptBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
         uint256 maxBPTAmountIn = _deficit * MAX_BPS * 1e18 / (MAX_BPS - slippage) / BPT_STEUR_EURE.getRate();
-        if (stakedGaugeBalance < maxBPTAmountIn) {
-            revert Errors.TooLowStakedBptBalance(stakedGaugeBalance, maxBPTAmountIn);
+        if (stakedBptBalance < maxBPTAmountIn) {
+            revert Errors.TooLowStakedBptBalance(stakedBptBalance, maxBPTAmountIn);
         }
         bytes memory unstakeAndClaimPayload =
             abi.encodeWithSignature("withdrawAndUnwrap(uint256,bool)", maxBPTAmountIn, true);
@@ -421,7 +435,7 @@ contract RoboSaverVirtualModule is
 
     /// @notice Stake all BPT on its Aura gauge
     function _stakeAllBpt() internal {
-        uint256 bptBalance = BPT_STEUR_EURE.balanceOf(address(CARD));
+        uint256 bptBalance = BPT_STEUR_EURE.balanceOf(CARD);
 
         bytes memory approveBptPayload =
             abi.encodeWithSignature("approve(address,uint256)", address(AURA_BOOSTER), bptBalance);
@@ -438,15 +452,51 @@ contract RoboSaverVirtualModule is
         emit StakeQueued(CARD, bptBalance, block.timestamp);
     }
 
+    /// @notice Internal function of `shutdown()`
+    /// @param _stakedBptBalance The total amount of BPT staked on the Aura gauge
+    function _shutdown(uint256 _stakedBptBalance) internal {
+        /// @dev Payload 1: Unstake and claim all pending rewards from the Aura gauge
+        bytes memory unstakeAndClaimPayload =
+            abi.encodeWithSignature("withdrawAndUnwrap(uint256,bool)", _stakedBptBalance, true);
+
+        /// @dev Payload 2: Withdraw all $EURe from the staked pool + from any residual BPT
+        /// @dev We also consider the BPT so that `shutdown()` can be called at any time;
+        ///      even when the keeper is not doing what it should be doing (immediately staking any residual bpt)
+        uint256 totalBptBalance = _stakedBptBalance + BPT_STEUR_EURE.balanceOf(CARD);
+        uint256 withdrawableEure = totalBptBalance * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
+        uint256[] memory minAmountsOut = new uint256[](3);
+        minAmountsOut[EURE_TOKEN_BPT_INDEX] = withdrawableEure;
+        bytes memory userData = abi.encode(
+            StablePoolUserData.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, totalBptBalance, EURE_TOKEN_BPT_INDEX_USER
+        );
+        IVault.ExitPoolRequest memory request_ = IVault.ExitPoolRequest(poolAssets, minAmountsOut, userData, false);
+        bytes memory exitPoolPayload =
+            abi.encodeWithSelector(IVault.exitPool.selector, BPT_STEUR_EURE_POOL_ID, CARD, payable(CARD), request_);
+
+        /// @dev Payload 3: Disable the virtual module
+        /// @dev address(0x1) is the sentinel address in the DelayModifier's linked list
+        address prevModule = _getPrevModule(address(0x1));
+        bytes memory disableModulePayload =
+            abi.encodeWithSignature("disableModule(address,address)", prevModule, address(this));
+
+        /// @dev Batch all payloads into a multicall
+        IMulticall.Call[] memory calls_ = new IMulticall.Call[](3);
+        calls_[0] = IMulticall.Call(address(AURA_GAUGE_STEUR_EURE), unstakeAndClaimPayload);
+        calls_[1] = IMulticall.Call(address(BALANCER_VAULT), exitPoolPayload);
+        calls_[2] = IMulticall.Call(address(delayModule), disableModulePayload);
+        bytes memory multicallPayload = abi.encodeWithSelector(IMulticall.aggregate.selector, calls_);
+
+        _queueTx(MULTICALL3, multicallPayload);
+
+        emit PoolShutdownQueued(CARD, withdrawableEure, block.timestamp);
+    }
+
     /// @dev Execute the next transaction in the queue using the storage variable `queuedTx`
     function _executeQueuedTx() internal {
         address cachedTarget = queuedTx.target;
         bytes memory cachedPayload = queuedTx.payload;
-        IDelayModifier.DelayModuleOperation operation = cachedTarget == MULTICALL3
-            ? IDelayModifier.DelayModuleOperation.DelegateCall
-            : IDelayModifier.DelayModuleOperation.Call;
-
-        delayModule.executeNextTx(cachedTarget, 0, cachedPayload, operation);
+        /// @dev since all actions go through multicall3, operation is set to 1 (DelegateCall)
+        delayModule.executeNextTx(cachedTarget, 0, cachedPayload, 1);
 
         emit AdjustPoolTxExecuted(cachedTarget, cachedPayload, queuedTx.nonce, block.timestamp);
 
@@ -465,10 +515,8 @@ contract RoboSaverVirtualModule is
     /// @param _target The address of the target of the transaction
     /// @param _payload The payload of the transaction
     function _queueTx(address _target, bytes memory _payload) internal {
-        IDelayModifier.DelayModuleOperation operation = _target == MULTICALL3
-            ? IDelayModifier.DelayModuleOperation.DelegateCall
-            : IDelayModifier.DelayModuleOperation.Call;
-        delayModule.execTransactionFromModule(_target, 0, _payload, operation);
+        /// @dev since all actions go through multicall3, operation is set to 1 (DelegateCall)
+        delayModule.execTransactionFromModule(_target, 0, _payload, 1);
         uint256 cachedQueueNonce = delayModule.queueNonce();
         queuedTx = VirtualModule.QueuedTx(cachedQueueNonce, _target, _payload);
 
@@ -493,6 +541,22 @@ contract RoboSaverVirtualModule is
         ) {
             anyExpiredTxs_ = true;
         }
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                  GETTERS & SETTERS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @dev Retrieve the previous module in the Delay module's linked list
+    /// @param _start The address of the module the previous module is pointing at
+    /// @return prevModule_ The address of the previous module relative to `_start`
+    function _getPrevModule(address _start) internal view returns (address prevModule_) {
+        /// @dev Retrieve the module _start points to in the linked list
+        (address[] memory nextModules,) = delayModule.getModulesPaginated(_start, MODULE_PAGE_SIZE);
+        if (nextModules[0] == address(this)) {
+            return _start;
+        }
+        prevModule_ = _getPrevModule(nextModules[0]);
     }
 
     function _setSlippage(uint16 _slippage) internal {
