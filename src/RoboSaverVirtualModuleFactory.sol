@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IKeeperRegistrar} from "./interfaces/chainlink/IKeeperRegistrar.sol";
 
-import {IDelayModifier} from "./interfaces/delayModule/IDelayModifier.sol";
+import {IDelayModifier} from "@gnosispay-kit/interfaces/IDelayModifier.sol";
 import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
 
 import {Factory} from "./types/DataTypes.sol";

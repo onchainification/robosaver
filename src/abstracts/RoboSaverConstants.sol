@@ -13,6 +13,7 @@ abstract contract RoboSaverConstants {
 
     uint256 constant EURE_TOKEN_BPT_INDEX = 2;
     uint256 constant EURE_TOKEN_BPT_INDEX_USER = 1;
+    uint256 constant MODULE_PAGE_SIZE = 1;
 
     address constant MULTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
 
