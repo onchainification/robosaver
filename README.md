@@ -4,7 +4,7 @@
 
 RoboSaver turns your [Gnosis Pay card](https://gnosispay.com/) into an automated savings account!
 
-Unused [EURe](https://monerium.com/tokens/) on your card gets deposited into a liquidity pool, where it collects yield and swapping fees. As soon as your card's balance gets below a certain threshold, the RoboSaver will withdraw some EURe from the pool for you and top up your card. Thus creating the perfect balance between having EURe ready for spending and putting EURe to work!
+Unused [EURe](https://monerium.com/tokens/) on your card gets deposited into a liquidity pool, where it collects yield and swapping fees. But as soon as your card's balance gets below a certain threshold, the RoboSaver will withdraw some EURe from the pool for you and top up your card. Thus creating the perfect balance between having EURe ready for spending and putting EURe to work!
 
 <p align="center"><img src="diagram.drawio.png"></p>
 
@@ -12,7 +12,7 @@ Unused [EURe](https://monerium.com/tokens/) on your card gets deposited into a l
 
 Only a single smart contract is needed; `RoboSaverVirtualModule`. The module is "virtual", since it doesn't get installed on the Gnosis Pay Safe directly, but on the `Delay` module instead. This way all of its transactions still respect the necessary delay needed to eventually settle with Visa.
 
-Currently the contract is automated by having a keeper call `checker` to see if any action is needed, and, if needed, then call `adjustPool` to perform that necessary action.
+Currently the contract is automated by having a keeper call `checkUpkeep` to see if any action is needed, and, if needed, then via `performUpkeep` internally call `_adjustPool` to perform that necessary action.
 
 ### 1.1 External Methods
 
@@ -31,7 +31,9 @@ Finally, copy `.env.example` to `.env` and populate it.
 
 ### 2.2 Test
 
-Run `forge test -vvvv`.
+```
+$ forge test -vvvv
+```
 
 ### 2.3 Local Deployment
 
@@ -42,7 +44,3 @@ $ make startAnvil
 ```
 $ make deployAnvil
 ```
-
-## 3. Proof of Concept
-
-This project was conceived at an ETHGlobal hackathon; see details here: https://github.com/onchainification/robosaver/releases/tag/v0.0.1-hackathon
