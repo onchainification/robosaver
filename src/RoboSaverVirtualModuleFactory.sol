@@ -102,7 +102,7 @@ contract RoboSaverVirtualModuleFactory is
             checkData: "",
             triggerConfig: "",
             offchainConfig: "",
-            amount: 200e18 // @note dummy value for now
+            amount: 2e18 // @note dummy value for now
         });
 
         upkeepId_ = CL_REGISTRAR.registerUpkeep(registrationParams);

@@ -4,6 +4,8 @@ pragma solidity ^0.8.25;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/Test.sol";
 
+import {IERC20} from "@chainlink/vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+
 import {Delay} from "@delay-module/Delay.sol";
 import {Roles} from "@roles-module/Roles.sol";
 import {Bouncer} from "@gnosispay-kit/Bouncer.sol";
@@ -16,12 +18,10 @@ import {RoboSaverVirtualModule} from "../src/RoboSaverVirtualModule.sol";
 /// 2. {DelayModule}
 /// 3. {Bouncer}
 /// 4. {RoboSaverVirtualModuleFactory}
+/// 5. {RoboSaverVirtualModule} - as singleton to facilitate verification for users of source code
 contract GnosisPayInfraDeployment is Script {
     // safe target
     address constant GNOSIS_SAFE = 0xa4A4a4879dCD3289312884e9eC74Ed37f9a92a55;
-
-    // keeper address
-    address constant KEEPER = 0x416c4E9accc71D0e973d7c16Cf67A48981d9d18b;
 
     // eure config: min for testing purposes
     uint128 constant MIN_EURE_ALLOWANCE = 10e18;
@@ -38,6 +38,9 @@ contract GnosisPayInfraDeployment is Script {
         bytes4(keccak256(bytes("setAllowance(bytes32,uint128,uint128,uint128,uint64,uint64)"))); // 0xa8ec43ee
     bytes32 constant SET_ALLOWANCE_KEY = keccak256("SPENDING_ALLOWANCE");
 
+    // LINK token
+    IERC20 constant LINK = IERC20(0xE2e73A1c69ecF83F464EFCE6A5be353a37cA09b2);
+
     // gnosis pay modules
     Delay delayModule;
     Roles rolesModule;
@@ -46,7 +49,7 @@ contract GnosisPayInfraDeployment is Script {
 
     // robosaver module & factory
     RoboSaverVirtualModuleFactory roboModuleFactory;
-    RoboSaverVirtualModule roboModule;
+    RoboSaverVirtualModule roboSaverVirtualModule;
 
     function run() public {
         // grab pk from `.env`
@@ -66,7 +69,15 @@ contract GnosisPayInfraDeployment is Script {
         // 4. {RoboSaverVirtualModuleFactory}
         roboModuleFactory = new RoboSaverVirtualModuleFactory();
 
-        // 5. {Allowance config}
+        // 5. {RoboSaverVirtualModule}
+        roboSaverVirtualModule = new RoboSaverVirtualModule(
+            address(roboModuleFactory), address(delayModule), address(rolesModule), 50e18, 200
+        );
+
+        // 6. Send LINK to the factory for upkeep registration
+        if (LINK.balanceOf(deployer) > 0) LINK.transfer(address(roboModuleFactory), 4e18);
+
+        // 7. {Allowance config}
         rolesModule.setAllowance(
             SET_ALLOWANCE_KEY,
             MIN_EURE_ALLOWANCE,
@@ -78,6 +89,8 @@ contract GnosisPayInfraDeployment is Script {
 
         // @note after deployment it is require to:
         // 1. Enable delay & roles modules on the safe (to be exec from the safe)
-        // 2. Enable RoboSaverVirtualModule on the delay module (to be exec from the safe)
+        // 2. Ensure that the factory has enough LINK balance to register the upkeep
+        // 3. Create a personal virtual module via the factory (to be exec from the safe)
+        // 4. Enable RoboSaverVirtualModule on the delay module (to be exec from the safe)
     }
 }
