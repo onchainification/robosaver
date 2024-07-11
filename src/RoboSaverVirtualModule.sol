@@ -224,7 +224,7 @@ contract RoboSaverVirtualModule is
     /// @notice Check if there is a surplus or deficit of $EURe on the card
     /// @return adjustPoolNeeded True if there is a deficit or surplus; false otherwise
     /// @return execPayload The payload of the needed transaction
-    function checkUpkeep(bytes calldata)
+    function checkUpkeep(bytes calldata /* checkData */ )
         external
         view
         override
