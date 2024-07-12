@@ -2,14 +2,32 @@ include .env
 
 deploy:
 	forge script script/GnosisPayInfraDeployment.s.sol \
-	--chain gnosis \
+	--rpc-url gnosis \
+	--via-ir \
+	-vvvv \
 	--broadcast \
 	--verify \
-	-vvvv
+	--chain gnosis
 
 deployDry:
 	forge script script/GnosisPayInfraDeployment.s.sol \
-	--chain gnosis \
+	--rpc-url gnosis \
+	--via-ir \
+	-vvvv
+
+deploySingleton:
+	forge script script/SingletonVirtualModuleDeployment.s.sol \
+	--rpc-url gnosis \
+	--via-ir \
+	-vvvv \
+	--broadcast \
+	--verify \
+	--chain gnosis
+
+deploySingletonDry:
+	forge script script/SingletonVirtualModuleDeployment.s.sol \
+	--rpc-url gnosis \
+	--via-ir \
 	-vvvv
 
 deployAnvil:
