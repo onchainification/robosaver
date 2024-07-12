@@ -40,5 +40,5 @@ deployAnvil:
 startAnvil:
 	anvil \
 	--code-size-limit 1000000 \
-	--fork-url ${GNOSIS_RPC_URL} \
+	--fork-url gnosis \
 	--gas-price 0
