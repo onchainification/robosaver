@@ -2,17 +2,22 @@ include .env
 
 deploy:
 	forge script script/GnosisPayInfraDeployment.s.sol \
-	--rpc-url ${GNOSIS_RPC_URL} \
+	--chain gnosis \
 	--broadcast \
-	--legacy \
-	-vvvv 
+	--verify \
+	-vvvv
+
+deployDry:
+	forge script script/GnosisPayInfraDeployment.s.sol \
+	--chain gnosis \
+	-vvvv
 
 deployAnvil:
 	forge script script/GnosisPayInfraDeployment.s.sol \
 	--rpc-url http://127.0.0.1:8545 \
 	--broadcast \
 	--legacy \
-	-vvvv 
+	-vvvv
 
 startAnvil:
 	anvil \
