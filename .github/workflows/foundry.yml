@@ -42,7 +42,10 @@ jobs:
         with:
           version: nightly
       - name: Install subdependencies
-        run: yarn install --cwd lib/delay-module
+        uses: actions/setup-node@v3
+        with:
+          cache: "yarn"
+      - run: yarn install --cwd lib/delay-module
       - name: Run Forge build
         run: |
           forge --version
@@ -51,7 +54,7 @@ jobs:
         run: |
           forge coverage --report lcov -vvv --no-match-coverage "(script|test)"
       - name: Upload coverage report to Codecov
-        uses: "codecov/codecov-action@v4"
+        uses: codecov/codecov-action@v4
         with:
           files: "./lcov.info"
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -70,7 +73,10 @@ jobs:
         with:
           version: nightly
       - name: Install subdependencies
-        run: yarn install --cwd lib/delay-module
+        uses: actions/setup-node@v3
+        with:
+          cache: "yarn"
+      - run: yarn install --cwd lib/delay-module
       - name: Dry run deployment
         run: |
           touch .env
