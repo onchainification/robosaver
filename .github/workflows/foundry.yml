@@ -75,4 +75,5 @@ jobs:
           forge build
       - name: Dry run deployment
         run: |
+          touch .env
           make deployDry
