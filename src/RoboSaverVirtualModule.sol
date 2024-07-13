@@ -233,8 +233,7 @@ contract RoboSaverVirtualModule is
         if (!delayModule.isModuleEnabled(address(this))) return (false, bytes("Virtual module is not enabled"));
 
         /// @dev check if there is a transaction queued up in the delay module by an external entity
-        ///      and it is not yet expired
-        if (_isExternalTxQueued() && !_isCleanQueueRequired()) {
+        if (_isExternalTxQueued()) {
             return (false, bytes("External transaction in queue, wait for it to be executed"));
         }
 
