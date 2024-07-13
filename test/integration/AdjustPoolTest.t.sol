@@ -38,7 +38,7 @@ contract AdjustPoolTest is BaseFixture {
     }
 
     function test_When_QueueHasExternalExpiredTxs() public {
-        // 1. queue dummy transfer - external tx
+        // 1. queue dummy transfer: external tx
         _transferOutBelowThreshold();
         uint256 txNonceBeforeCleanup = delayModule.txNonce(); // in this case should be `0`
         assertEq(txNonceBeforeCleanup, 0);
@@ -46,6 +46,32 @@ contract AdjustPoolTest is BaseFixture {
         (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
         assertFalse(canExec);
         assertEq(execPayload, bytes("External transaction in queue, wait for it to be executed"));
+
+        // 2. force the queued up tx to expire
+        skip(COOLDOWN_PERIOD + EXPIRATION_PERIOD + 1);
+
+        (canExec, execPayload) = roboModule.checkUpkeep("");
+        assertFalse(canExec);
+        assertEq(execPayload, bytes("Neither deficit nor surplus; no action needed"));
+
+        // 3. queue a normal deposit
+        vm.prank(keeper);
+        roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.DEPOSIT, 2e18));
+
+        // confirm that the clean up occurred; it should have triggered `txNonce++`
+        assertGt(delayModule.txNonce(), txNonceBeforeCleanup);
+    }
+
+    function test_When_QueueHasInternalExpiredTxs() public {
+        // 1. queue dummy deposit: internal tx
+        vm.prank(keeper);
+        roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.DEPOSIT, 2e18));
+        uint256 txNonceBeforeCleanup = delayModule.txNonce(); // in this case should be `0`
+        assertEq(txNonceBeforeCleanup, 0);
+
+        (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
+        assertFalse(canExec);
+        assertEq(execPayload, bytes("Internal transaction in cooldown status"));
 
         // 2. force the queued up tx to expire
         skip(COOLDOWN_PERIOD + EXPIRATION_PERIOD + 1);
