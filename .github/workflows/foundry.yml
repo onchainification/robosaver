@@ -69,10 +69,6 @@ jobs:
           version: nightly
       - name: Install subdependencies
         run: yarn install --cwd lib/delay-module
-      - name: Run Forge build
-        run: |
-          forge --version
-          forge build
       - name: Dry run deployment
         run: |
           touch .env
