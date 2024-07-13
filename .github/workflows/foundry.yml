@@ -29,8 +29,6 @@ jobs:
           commit_message: "style: ci lint `forge fmt`"
 
   test:
-    strategy:
-      fail-fast: true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -62,8 +60,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
   deploy-dry:
-    strategy:
-      fail-fast: true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
