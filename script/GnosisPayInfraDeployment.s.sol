@@ -75,7 +75,9 @@ contract GnosisPayInfraDeployment is Script {
         );
 
         // 6. Send LINK to the factory for upkeep registration
-        if (LINK.balanceOf(deployer) >= 4e18) LINK.transfer(address(roboModuleFactory), 4e18);
+        if (LINK.balanceOf(deployer) >= 4e18) {
+            LINK.transfer(address(roboModuleFactory), 4e18);
+        }
 
         // 7. {Allowance config}
         rolesModule.setAllowance(
