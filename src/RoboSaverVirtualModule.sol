@@ -245,7 +245,9 @@ contract RoboSaverVirtualModule is
         if (queuedTx.nonce != 0) {
             /// @notice check if the transaction is still in cooldown or ready to exec
             if (_isInCoolDown(queuedTx.nonce)) return (false, bytes("Internal transaction in cooldown status"));
-            return (true, abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
+            if (!_isCleanQueueRequired()) {
+                return (true, abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
+            }
         }
 
         uint256 bptBalance = BPT_STEUR_EURE.balanceOf(CARD);
