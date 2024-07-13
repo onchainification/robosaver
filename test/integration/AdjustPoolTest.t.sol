@@ -37,7 +37,7 @@ contract AdjustPoolTest is BaseFixture {
         roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.DEPOSIT, 2e18));
     }
 
-    function test_When_QueueHasExpiredTxs() public {
+    function test_When_QueueHasExternalExpiredTxs() public {
         // 1. queue dummy transfer - external tx
         _transferOutBelowThreshold();
         uint256 txNonceBeforeCleanup = delayModule.txNonce(); // in this case should be `0`
