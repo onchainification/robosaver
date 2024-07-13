@@ -234,7 +234,11 @@ contract RoboSaverVirtualModule is
 
         /// @dev check if there is a transaction queued up in the delay module by an external entity
         if (_isExternalTxQueued()) {
-            return (false, bytes("External transaction in queue, wait for it to be executed"));
+            if (!_isCleanQueueRequired()) {
+                return (false, bytes("External transaction in queue, wait for it to be executed"));
+            } else {
+                /// @dev _adjustPool will clean up the expired tx from the queue; no action needed here
+            }
         }
 
         /// @dev check if there is a transaction queued up in the delay module by the virtual module itself
