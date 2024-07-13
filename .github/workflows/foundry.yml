@@ -4,6 +4,7 @@ on: [workflow_dispatch, pull_request]
 
 env:
   FOUNDRY_PROFILE: ci
+  PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }} # dummy pkey for dry runs only!
   GNOSIS_RPC_URL: ${{ secrets.GNOSIS_RPC_URL }}
   GNOSISSCAN_API_KEY: ${{ secrets.GNOSISSCAN_API_KEY }}
 
