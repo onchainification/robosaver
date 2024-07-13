@@ -13,3 +13,6 @@ remappings = [
 
 [rpc_endpoints]
 gnosis = "${GNOSIS_RPC_URL}"
+
+[etherscan]
+gnosis = { key = "${GNOSISSCAN_API_KEY}" }
