@@ -42,3 +42,12 @@ startAnvil:
 	--code-size-limit 1000000 \
 	--fork-url gnosis \
 	--gas-price 0
+
+verifyTenderly:
+	forge verify-contract ${VMODULE_ADDRESS} \
+	RoboSaverVirtualModule \
+	--etherscan-api-key ${TENDERLY_ACCESS_TOKEN} \
+	--verifier-url ${TENDERLY_VERIFIER_URL} \
+	--chain gnosis \
+	--via-ir \
+	--watch
