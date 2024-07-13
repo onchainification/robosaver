@@ -13,7 +13,6 @@ deployDry:
 	forge script script/GnosisPayInfraDeployment.s.sol \
 	--rpc-url gnosis \
 	--via-ir \
-	--skip test \
 	-vvvv
 
 deploySingleton:
