@@ -132,25 +132,19 @@ contract RoboSaverVirtualModule is
 
     /// @notice Enforce that the function is called by the keeper only
     modifier onlyKeeper() {
-        if (msg.sender != keeper) {
-            revert Errors.NotKeeper(msg.sender);
-        }
+        if (msg.sender != keeper) revert Errors.NotKeeper(msg.sender);
         _;
     }
 
     /// @notice Enforce that the function is called by the admin only
     modifier onlyAdmin() {
-        if (msg.sender != CARD) {
-            revert Errors.NotAdmin(msg.sender);
-        }
+        if (msg.sender != CARD) revert Errors.NotAdmin(msg.sender);
         _;
     }
 
     /// @notice Enforce that the function is called by the admin or the factory only
     modifier onlyAdminOrFactory() {
-        if (msg.sender != CARD && msg.sender != FACTORY) {
-            revert Errors.NeitherAdminNorFactory(msg.sender);
-        }
+        if (msg.sender != CARD && msg.sender != FACTORY) revert Errors.NeitherAdminNorFactory(msg.sender);
         _;
     }
 
@@ -207,9 +201,7 @@ contract RoboSaverVirtualModule is
     /// @notice Assigns a new keeper address
     /// @param _keeper The address of the new keeper
     function setKeeper(address _keeper) external onlyAdminOrFactory {
-        if (_keeper == address(0)) {
-            revert Errors.ZeroAddressValue();
-        }
+        if (_keeper == address(0)) revert Errors.ZeroAddressValue();
 
         address oldKeeper = keeper;
         keeper = _keeper;
@@ -238,9 +230,7 @@ contract RoboSaverVirtualModule is
         override
         returns (bool adjustPoolNeeded, bytes memory execPayload)
     {
-        if (!delayModule.isModuleEnabled(address(this))) {
-            return (false, bytes("Virtual module is not enabled"));
-        }
+        if (!delayModule.isModuleEnabled(address(this))) return (false, bytes("Virtual module is not enabled"));
 
         /// @dev check if there is a transaction queued up in the delay module by an external entity
         ///      and it is not yet expired
@@ -251,9 +241,7 @@ contract RoboSaverVirtualModule is
         /// @dev check if there is a transaction queued up in the delay module by the virtual module itself
         if (queuedTx.nonce != 0) {
             /// @notice check if the transaction is still in cooldown or ready to exec
-            if (_isInCoolDown(queuedTx.nonce)) {
-                return (false, bytes("Internal transaction in cooldown status"));
-            }
+            if (_isInCoolDown(queuedTx.nonce)) return (false, bytes("Internal transaction in cooldown status"));
             return (true, abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
         }
 
@@ -268,9 +256,7 @@ contract RoboSaverVirtualModule is
         if (balance < dailyAllowance) {
             /// @notice there is a deficit; we need to withdraw from the pool
             uint256 stakedBptBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
-            if (stakedBptBalance == 0) {
-                return (false, bytes("No staked BPT balance on the card"));
-            }
+            if (stakedBptBalance == 0) return (false, bytes("No staked BPT balance on the card"));
 
             uint256 deficit = dailyAllowance - balance + buffer;
             uint256 withdrawableEure =
@@ -314,15 +300,9 @@ contract RoboSaverVirtualModule is
     /// @param _action The action to take: deposit or withdraw
     /// @param _amount The amount of $EURe to deposit or withdraw
     function _adjustPool(VirtualModule.PoolAction _action, uint256 _amount) internal {
-        if (!delayModule.isModuleEnabled(address(this))) {
-            revert Errors.VirtualModuleNotEnabled();
-        }
-        if (_isCleanQueueRequired()) {
-            delayModule.skipExpired();
-        }
-        if (_isExternalTxQueued()) {
-            revert Errors.ExternalTxIsQueued();
-        }
+        if (!delayModule.isModuleEnabled(address(this))) revert Errors.VirtualModuleNotEnabled();
+        if (_isCleanQueueRequired()) delayModule.skipExpired();
+        if (_isExternalTxQueued()) revert Errors.ExternalTxIsQueued();
 
         if (_action == VirtualModule.PoolAction.WITHDRAW) {
             _poolWithdrawal(_amount);
@@ -528,9 +508,7 @@ contract RoboSaverVirtualModule is
     /// @return isTxQueued_ True if there is a transaction queued up; false otherwise
     function _isExternalTxQueued() internal view returns (bool isTxQueued_) {
         uint256 cachedQueueNonce = delayModule.queueNonce();
-        if (delayModule.txNonce() != cachedQueueNonce && cachedQueueNonce != queuedTx.nonce) {
-            isTxQueued_ = true;
-        }
+        if (delayModule.txNonce() != cachedQueueNonce && cachedQueueNonce != queuedTx.nonce) isTxQueued_ = true;
     }
 
     /// @notice Queue the transaction into the delay module
@@ -550,9 +528,7 @@ contract RoboSaverVirtualModule is
     /// @return isInCoolDown_ True if the transaction is still in cooldown; false otherwise
     function _isInCoolDown(uint256 _nonce) internal view returns (bool isInCoolDown_) {
         /// @dev Requires deducting 1 from the storage nonce, since the delay module increments after writing timestamp in their internal storage
-        if (block.timestamp - delayModule.getTxCreatedAt(_nonce - 1) <= delayModule.txCooldown()) {
-            isInCoolDown_ = true;
-        }
+        if (block.timestamp - delayModule.getTxCreatedAt(_nonce - 1) <= delayModule.txCooldown()) isInCoolDown_ = true;
     }
 
     /// @notice Check if any transactions are expired
@@ -584,9 +560,7 @@ contract RoboSaverVirtualModule is
     }
 
     function _setSlippage(uint16 _slippage) internal {
-        if (_slippage >= MAX_BPS) {
-            revert Errors.TooHighBps();
-        }
+        if (_slippage >= MAX_BPS) revert Errors.TooHighBps();
 
         uint16 oldSlippage = slippage;
         slippage = _slippage;
@@ -595,9 +569,7 @@ contract RoboSaverVirtualModule is
     }
 
     function _setBuffer(uint256 _buffer) internal {
-        if (_buffer == 0) {
-            revert Errors.ZeroUintValue();
-        }
+        if (_buffer == 0) revert Errors.ZeroUintValue();
 
         uint256 oldBuffer = buffer;
         buffer = _buffer;
