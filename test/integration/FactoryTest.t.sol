@@ -16,7 +16,7 @@ contract FactoryTest is BaseFixture {
     Delay dummyDelayModule;
     Roles dummyRolesModule;
 
-    function test_ReverWhen_AvatarDoesNotMatch() public {
+    function test_RevertWhen_AvatarDoesNotMatch() public {
         address randomAvatar = address(545_495);
         // deploy dummy delay and roles modules
         dummyRolesModule = new Roles(SAFE_EOA_SIGNER, randomAvatar, randomAvatar);

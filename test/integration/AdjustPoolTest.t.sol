@@ -7,7 +7,7 @@ import {VirtualModule} from "../../src/types/DataTypes.sol";
 import {Errors} from ".../../src/libraries/Errors.sol";
 
 contract AdjustPoolTest is BaseFixture {
-    function test_ReverWhen_NoKeeper() public {
+    function test_RevertWhen_NoKeeper() public {
         address caller = address(54654546);
         vm.prank(caller);
         vm.expectRevert(abi.encodeWithSelector(Errors.NotKeeper.selector, caller));
