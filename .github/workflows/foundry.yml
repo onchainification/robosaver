@@ -53,3 +53,26 @@ jobs:
         with:
           files: "./lcov.info"
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  deploy-dry:
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      - name: Install subdependencies
+        run: yarn install --cwd lib/delay-module
+      - name: Run Forge build
+        run: |
+          forge --version
+          forge build
+      - name: Dry run deployment
+        run: |
+          make deployDry
