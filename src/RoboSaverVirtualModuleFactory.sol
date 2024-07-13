@@ -106,9 +106,7 @@ contract RoboSaverVirtualModuleFactory is
         });
 
         upkeepId_ = CL_REGISTRAR.registerUpkeep(registrationParams);
-        if (upkeepId_ == 0) {
-            revert Errors.UpkeepZero();
-        }
+        if (upkeepId_ == 0) revert Errors.UpkeepZero();
 
         virtualModules[msg.sender] =
             Factory.VirtualModuleDetails({virtualModuleAddress: _virtualModule, upkeepId: upkeepId_});
