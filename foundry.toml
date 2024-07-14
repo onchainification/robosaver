@@ -10,6 +10,7 @@ remappings = [
     '@balancer-v2=lib/balancer-v2-monorepo/pkg/',
     '@chainlink=lib/chainlink/contracts/src/v0.8/',
 ]
+cbor_metadata = true
 
 [rpc_endpoints]
 gnosis = "${GNOSIS_RPC_URL}"
