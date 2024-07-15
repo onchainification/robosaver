@@ -297,7 +297,7 @@ contract RoboSaverVirtualModule is
         }
     }
 
-    function eureDeficit() external view returns (uint256 deficit_) {
+    function deficit() external view returns (uint256 deficit_) {
         uint256 balance = EURE.balanceOf(CARD);
         (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
@@ -306,7 +306,7 @@ contract RoboSaverVirtualModule is
         }
     }
 
-    function eureSurplus() external view returns (uint256 surplus_) {
+    function surplus() external view returns (uint256 surplus_) {
         uint256 balance = EURE.balanceOf(CARD);
         (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 

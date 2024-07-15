@@ -71,7 +71,7 @@ contract AdjustPoolTest is BaseFixture {
 
         // deposit enough eure to the card to create a surplus
         _incomingEure(500e18);
-        uint256 surplus = roboModule.eureSurplus();
+        uint256 surplus = roboModule.surplus();
         assertGt(surplus, 0);
 
         // an upkeep should now result in queueing an internal tx; a deposit of the surplus
