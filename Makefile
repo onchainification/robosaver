@@ -3,6 +3,7 @@ include .env
 deploy:
 	forge script script/GnosisPayInfraDeployment.s.sol \
 	--rpc-url gnosis \
+	--slow \
 	--via-ir \
 	-vvvv \
 	--broadcast \
@@ -12,21 +13,7 @@ deploy:
 deployDry:
 	forge script script/GnosisPayInfraDeployment.s.sol \
 	--rpc-url gnosis \
-	--via-ir \
-	-vvvv
-
-deploySingleton:
-	forge script script/SingletonVirtualModuleDeployment.s.sol \
-	--rpc-url gnosis \
-	--via-ir \
-	-vvvv \
-	--broadcast \
-	--verify \
-	--chain gnosis
-
-deploySingletonDry:
-	forge script script/SingletonVirtualModuleDeployment.s.sol \
-	--rpc-url gnosis \
+	--slow \
 	--via-ir \
 	-vvvv
 
