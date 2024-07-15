@@ -67,7 +67,7 @@ contract AdjustPoolTest is BaseFixture {
         uint256 delayTxNonceBefore = delayModule.txNonce();
 
         // make sure our balance is within the buffer
-        _assertCheckerFalseNoDeficitNorSurplus();
+        _upkeepAndAssertPayload(bytes("Neither deficit nor surplus; no action needed"));
 
         // deposit enough eure to the card to create a surplus
         _incomingEure(500e18);
@@ -76,6 +76,8 @@ contract AdjustPoolTest is BaseFixture {
 
         // an upkeep should now result in queueing an internal tx; a deposit of the surplus
         _upkeepAndAssertPayload(abi.encode(VirtualModule.PoolAction.DEPOSIT, surplus));
+
+        // confirm it got queued up and is now in cooldown
         _upkeepAndAssertPayload(bytes("Internal transaction in cooldown status"));
 
         // force the queued up tx to expire
