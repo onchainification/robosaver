@@ -80,6 +80,8 @@ contract BaseFixture is Test, Constants {
 
         delayModule.enableModule(address(roboModule));
         delayModule.enableModule(address(safe));
+        // eoa also should be a module here for setup replication
+        delayModule.enableModule(SAFE_EOA_SIGNER);
 
         safe.enableModule(address(delayModule));
         safe.enableModule(address(rolesModule));
@@ -114,6 +116,7 @@ contract BaseFixture is Test, Constants {
 
     /// @dev Labels key contracts for tracing
     function _labelKeyContracts() internal {
+        vm.label(SAFE_EOA_SIGNER, "SAFE_EOA_SIGNER");
         vm.label(address(safe), "GNOSIS_SAFE");
         // robosaver module factory
         vm.label(address(roboModuleFactory), "ROBO_MODULE_FACTORY");

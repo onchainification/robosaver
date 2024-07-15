@@ -6,6 +6,8 @@ import {BaseFixture} from "../BaseFixture.sol";
 import {Delay} from "@delay-module/Delay.sol";
 import {Roles} from "@roles-module/Roles.sol";
 
+import {Enum} from "../../lib/delay-module/node_modules/@gnosis.pm/safe-contracts/contracts/common/Enum.sol";
+
 import {IKeeperRegistrar} from "../../src/interfaces/chainlink/IKeeperRegistrar.sol";
 
 import {Errors} from ".../../src/libraries/Errors.sol";
@@ -30,6 +32,26 @@ contract FactoryTest is BaseFixture {
         vm.expectRevert(abi.encodeWithSelector(Errors.CallerNotMatchingAvatar.selector, "RolesModule", address(safe)));
         roboModuleFactory.createVirtualModule(address(delayModule), address(dummyRolesModule), EURE_BUFFER, SLIPPAGE);
         vm.stopPrank();
+    }
+
+    function test_delegationSuccesful() public {
+        uint256 txNonceBeforeInstallationCall = delayModule.queueNonce();
+        // queues the tx, abstracting away the complexity of the delay module
+        vm.prank(SAFE_EOA_SIGNER);
+        roboModuleFactory.installation(address(delayModule));
+
+        // check: actually new tx is queued up?
+        assertGt(delayModule.queueNonce(), txNonceBeforeInstallationCall, "No new tx queued up");
+
+        // push time fwd
+        skip(COOLDOWN_PERIOD + 1);
+
+        // exec: queue tx after cooldown is ok to be executed
+        bytes memory payload = abi.encodeWithSignature("enableModule(address)", address(this));
+        delayModule.executeNextTx(address(delayModule), 0, payload, Enum.Operation.Call);
+
+        // check: did the factory become a module?
+        assertTrue(delayModule.isModuleEnabled(address(roboModuleFactory)), "Factory not enabled as module");
     }
 
     /// @todo pendant of implementing properly in another PR ensuring proper storage manipulation

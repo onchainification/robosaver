@@ -44,6 +44,19 @@ contract RoboSaverVirtualModuleFactory is
                                   EXTERNAL METHODS
     //////////////////////////////////////////////////////////////////////////*/
 
+    /// @dev wip - on r&d phase
+    function installation(address _delayModule) external {
+        bytes memory payload = abi.encodeWithSignature("enableModule(address)", address(this));
+        // allow the factory to be a vmod, queue tx since it is not owner
+        (bool success,) = _delayModule.call(
+            abi.encodeWithSignature(
+                "execTransactionFromModule(address,uint256,bytes,uint8)", _delayModule, 0, payload, 1
+            )
+        );
+        // catch revert early on the r&d
+        require(success, "Factory: installation queue failed!");
+    }
+
     /// @notice Creates a virtual module for a card
     /// @param _delayModule The address of the delay module
     /// @param _rolesModule The address of the roles module
