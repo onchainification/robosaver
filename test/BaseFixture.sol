@@ -223,7 +223,7 @@ contract BaseFixture is Test, Constants {
         assertEq(execPayload, bytes("Neither deficit nor surplus; no action needed"));
     }
 
-    function _upkeepAndAssertReturnedPayload(bytes memory _expectedCheckReturn) internal {
+    function _upkeepAndAssertPayload(bytes memory _expectedCheckReturn) internal {
         (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
         assertEq(execPayload, _expectedCheckReturn);
         if (canExec) {

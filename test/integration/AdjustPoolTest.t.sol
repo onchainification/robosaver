@@ -75,18 +75,18 @@ contract AdjustPoolTest is BaseFixture {
         assertGt(surplus, 0);
 
         // an upkeep should now result in queueing an internal tx; a deposit of the surplus
-        _upkeepAndAssertReturnedPayload(abi.encode(VirtualModule.PoolAction.DEPOSIT, surplus));
-        _upkeepAndAssertReturnedPayload(bytes("Internal transaction in cooldown status"));
+        _upkeepAndAssertPayload(abi.encode(VirtualModule.PoolAction.DEPOSIT, surplus));
+        _upkeepAndAssertPayload(bytes("Internal transaction in cooldown status"));
 
         // force the queued up tx to expire
         skip(COOLDOWN_PERIOD + EXPIRATION_PERIOD + 1);
 
         // upkeep should now want to try to deposit again since our previous deposit expired
-        _upkeepAndAssertReturnedPayload(abi.encode(VirtualModule.PoolAction.DEPOSIT, surplus));
+        _upkeepAndAssertPayload(abi.encode(VirtualModule.PoolAction.DEPOSIT, surplus));
 
         // this time we will actually exec the deposit
         vm.warp(block.timestamp + COOLDOWN_PERIOD + 1);
-        _upkeepAndAssertReturnedPayload(abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
+        _upkeepAndAssertPayload(abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
 
         // confirm that the delay module triggered `txNonce++` **twice**!
         // (once for the clean up, and once for the exec of the deposit)
