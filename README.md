@@ -45,7 +45,9 @@ $ make startAnvil
 $ make deployAnvil
 ```
 
-## 3. `checkUpkeep(bytes)` raw values returned mapping (`bytes` -> `string`)
+## 3. Debugging
+
+### 3.1 `checkUpkeep(bytes)` raw values returned mapping (`bytes` -> `string`)
 
 | Bytes    | Readable String |
 | -------- | ------- |
