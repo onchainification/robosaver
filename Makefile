@@ -38,3 +38,17 @@ verifyTenderly:
 	--chain gnosis \
 	--via-ir \
 	--watch
+
+coverage:
+	forge coverage \
+	--report lcov \
+	-vvv \
+	--no-match-coverage "(script|test)" \
+	--skip script
+
+# todo: https://github.com/codecov/codecov-cli?tab=readme-ov-file#do-upload
+codecov:
+	codecovcli \
+	--verbose \
+	upload-process \
+	-t ${CODECOV_TOKEN}
