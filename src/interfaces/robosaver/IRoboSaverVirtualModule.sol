@@ -67,4 +67,38 @@ interface IRoboSaverVirtualModule {
     /// @param oldSlippage The value of the old slippage
     /// @param newSlippage The value of the new slippage
     event SetSlippage(address indexed admin, uint256 oldSlippage, uint256 newSlippage);
+
+    function CARD() external view returns (address);
+
+    function FACTORY() external view returns (address);
+
+    function buffer() external view returns (uint256);
+
+    function checkUpkeep(bytes memory) external view returns (bool adjustPoolNeeded, bytes memory execPayload);
+
+    function delayModule() external view returns (address);
+
+    function keeper() external view returns (address);
+
+    function name() external pure returns (string memory);
+
+    function performUpkeep(bytes memory _performData) external;
+
+    function poolAssets(uint256) external view returns (address);
+
+    function queuedTx() external view returns (uint256 nonce, address target, bytes memory payload);
+
+    function rolesModule() external view returns (address);
+
+    function setBuffer(uint256 _buffer) external;
+
+    function setKeeper(address _keeper) external;
+
+    function setSlippage(uint16 _slippage) external;
+
+    function shutdown() external;
+
+    function slippage() external view returns (uint16);
+
+    function version() external pure returns (string memory);
 }
