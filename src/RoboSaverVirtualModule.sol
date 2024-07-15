@@ -297,6 +297,24 @@ contract RoboSaverVirtualModule is
         }
     }
 
+    function eureDeficit() external view returns (uint256 deficit_) {
+        uint256 balance = EURE.balanceOf(CARD);
+        (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
+
+        if (balance < dailyAllowance) {
+            deficit_ = dailyAllowance - balance + buffer;
+        }
+    }
+
+    function eureSurplus() external view returns (uint256 surplus_) {
+        uint256 balance = EURE.balanceOf(CARD);
+        (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
+
+        if (balance > dailyAllowance + buffer) {
+            surplus_ = balance - (dailyAllowance + buffer);
+        }
+    }
+
     /*//////////////////////////////////////////////////////////////////////////
                                    INTERNAL METHODS
     //////////////////////////////////////////////////////////////////////////*/
