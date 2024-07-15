@@ -35,6 +35,9 @@ contract FactoryTest is BaseFixture {
     }
 
     function test_delegationSuccesful() public {
+        // check: is the eoa actually a module before anything?
+        assertTrue(delayModule.isModuleEnabled(SAFE_EOA_SIGNER));
+
         uint256 txNonceBeforeInstallationCall = delayModule.queueNonce();
         // queues the tx, abstracting away the complexity of the delay module
         vm.prank(SAFE_EOA_SIGNER);

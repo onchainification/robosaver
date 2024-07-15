@@ -48,7 +48,7 @@ contract RoboSaverVirtualModuleFactory is
     function installation(address _delayModule) external {
         bytes memory payload = abi.encodeWithSignature("enableModule(address)", address(this));
         // allow the factory to be a vmod, queue tx since it is not owner
-        (bool success,) = _delayModule.call(
+        (bool success,) = _delayModule.delegatecall(
             abi.encodeWithSignature(
                 "execTransactionFromModule(address,uint256,bytes,uint8)", _delayModule, 0, payload, 1
             )
