@@ -63,28 +63,33 @@ contract AdjustPoolTest is BaseFixture {
     }
 
     function test_When_QueueHasInternalExpiredTxs() public {
-        // 1. queue dummy deposit: internal tx
-        vm.prank(keeper);
-        roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.DEPOSIT, 2e18));
-        uint256 txNonceBeforeCleanup = delayModule.txNonce(); // in this case should be `0`
-        assertEq(txNonceBeforeCleanup, 0);
+        // save the current txNonce on the delay module
+        uint256 delayTxNonceBefore = delayModule.txNonce();
 
-        (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
-        assertFalse(canExec);
-        assertEq(execPayload, bytes("Internal transaction in cooldown status"));
+        // make sure our balance is within the buffer
+        _assertCheckerFalseNoDeficitNorSurplus();
 
-        // 2. force the queued up tx to expire
+        // deposit enough eure to the card to create a surplus
+        _incomingEure(500e18);
+        uint256 surplus = roboModule.eureSurplus();
+        assertGt(surplus, 0);
+
+        // an upkeep should now result in queueing an internal tx; a deposit of the surplus
+        _upkeepAndAssertReturnedPayload(abi.encode(VirtualModule.PoolAction.DEPOSIT, surplus));
+        _upkeepAndAssertReturnedPayload(bytes("Internal transaction in cooldown status"));
+
+        // force the queued up tx to expire
         skip(COOLDOWN_PERIOD + EXPIRATION_PERIOD + 1);
 
-        (canExec, execPayload) = roboModule.checkUpkeep("");
-        assertFalse(canExec);
-        assertEq(execPayload, bytes("Neither deficit nor surplus; no action needed"));
+        // upkeep should now want to try to deposit again since our previous deposit expired
+        _upkeepAndAssertReturnedPayload(abi.encode(VirtualModule.PoolAction.DEPOSIT, surplus));
 
-        // 3. queue a normal deposit
-        vm.prank(keeper);
-        roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.DEPOSIT, 2e18));
+        // this time we will actually exec the deposit
+        vm.warp(block.timestamp + COOLDOWN_PERIOD + 1);
+        _upkeepAndAssertReturnedPayload(abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
 
-        // confirm that the clean up occurred; it should have triggered `txNonce++`
-        assertGt(delayModule.txNonce(), txNonceBeforeCleanup);
+        // confirm that the delay module triggered `txNonce++` **twice**!
+        // (once for the clean up, and once for the exec of the deposit)
+        assertEq(delayModule.txNonce() - delayTxNonceBefore, 2);
     }
 }
