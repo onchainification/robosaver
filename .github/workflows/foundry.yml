@@ -51,6 +51,7 @@ jobs:
           forge build
       - name: Run Forge tests
         run: |
+          touch .env
           make coverage
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v4
