@@ -1,4 +1,4 @@
-include .env
+-include .env
 
 deploy:
 	forge script script/GnosisPayInfraDeployment.s.sol \
