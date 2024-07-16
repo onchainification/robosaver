@@ -184,6 +184,12 @@ contract BaseFixture is Test, Constants {
         delayModule.execTransactionFromModule(EURE, 0, payloadErc20Transfer, Enum.Operation.Call);
     }
 
+    /// @notice simulate an incoming eure transfer to the card
+    function _incomingEure(uint256 _amount) internal {
+        vm.prank(EURE_MINTER);
+        IEURe(EURE).mintTo(address(safe), _amount);
+    }
+
     /*//////////////////////////////////////////////////////////////////////////
         INTERNAL METHODS: HELPERS FOR ASSERTING `queuedTx` STORAGE VALUES
     //////////////////////////////////////////////////////////////////////////*/
@@ -215,6 +221,15 @@ contract BaseFixture is Test, Constants {
 
         assertFalse(canExec);
         assertEq(execPayload, bytes("Neither deficit nor surplus; no action needed"));
+    }
+
+    function _upkeepAndAssertPayload(bytes memory _expectedCheckReturn) internal {
+        (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
+        assertEq(execPayload, _expectedCheckReturn);
+        if (canExec) {
+            vm.prank(keeper);
+            roboModule.performUpkeep(execPayload);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////////////////
