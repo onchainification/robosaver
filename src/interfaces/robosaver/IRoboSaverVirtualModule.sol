@@ -72,23 +72,9 @@ interface IRoboSaverVirtualModule {
 
     function FACTORY() external view returns (address);
 
-    function buffer() external view returns (uint256);
-
-    function checkUpkeep(bytes memory) external view returns (bool adjustPoolNeeded, bytes memory execPayload);
-
-    function delayModule() external view returns (address);
-
-    function keeper() external view returns (address);
-
     function name() external pure returns (string memory);
 
-    function performUpkeep(bytes memory _performData) external;
-
-    function poolAssets(uint256) external view returns (address);
-
     function queuedTx() external view returns (uint256 nonce, address target, bytes memory payload);
-
-    function rolesModule() external view returns (address);
 
     function setBuffer(uint256 _buffer) external;
 
