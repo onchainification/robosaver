@@ -292,6 +292,8 @@ contract RoboSaverVirtualModule is
         }
     }
 
+    /// @notice Retrieve the current deficit on the card
+    /// @return deficit_ The amount of $EURe needed to reach the daily allowance + buffer
     function deficit() public view returns (uint256 deficit_) {
         uint256 balance = EURE.balanceOf(CARD);
         (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
@@ -301,6 +303,8 @@ contract RoboSaverVirtualModule is
         }
     }
 
+    /// @notice Retrieve the current surplus on the card
+    /// @return surplus_ The amount of $EURe that can be deposited elsewhere
     function surplus() public view returns (uint256 surplus_) {
         uint256 balance = EURE.balanceOf(CARD);
         (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
