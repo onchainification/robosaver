@@ -255,26 +255,21 @@ contract RoboSaverVirtualModule is
             return (true, abi.encode(VirtualModule.PoolAction.STAKE, 0));
         }
 
-        uint256 balance = EURE.balanceOf(CARD);
-        (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
-
-        if (balance < dailyAllowance) {
+        if (deficit() > 0) {
             /// @notice there is a deficit; we need to withdraw from the pool
             uint256 stakedBptBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
             if (stakedBptBalance == 0) return (false, bytes("No staked BPT balance on the card"));
 
-            uint256 deficit = dailyAllowance - balance + buffer;
             uint256 withdrawableEure =
                 stakedBptBalance * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
-            if (withdrawableEure < deficit) {
+            if (withdrawableEure < deficit()) {
                 return (true, abi.encode(VirtualModule.PoolAction.CLOSE, withdrawableEure));
             } else {
-                return (true, abi.encode(VirtualModule.PoolAction.WITHDRAW, deficit));
+                return (true, abi.encode(VirtualModule.PoolAction.WITHDRAW, deficit()));
             }
-        } else if (balance > dailyAllowance + buffer) {
+        } else if (surplus() > 0) {
             /// @notice there is a surplus; we need to deposit into the pool
-            uint256 surplus = balance - (dailyAllowance + buffer);
-            return (true, abi.encode(VirtualModule.PoolAction.DEPOSIT, surplus));
+            return (true, abi.encode(VirtualModule.PoolAction.DEPOSIT, surplus()));
         }
 
         /// @notice neither deficit nor surplus; no action needed
@@ -297,7 +292,7 @@ contract RoboSaverVirtualModule is
         }
     }
 
-    function deficit() external view returns (uint256 deficit_) {
+    function deficit() public view returns (uint256 deficit_) {
         uint256 balance = EURE.balanceOf(CARD);
         (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
@@ -306,7 +301,7 @@ contract RoboSaverVirtualModule is
         }
     }
 
-    function surplus() external view returns (uint256 surplus_) {
+    function surplus() public view returns (uint256 surplus_) {
         uint256 balance = EURE.balanceOf(CARD);
         (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
 
