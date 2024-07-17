@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.25;
 
 import {BaseFixture} from "../BaseFixture.sol";
@@ -7,7 +7,7 @@ import {VirtualModule} from "../../src/types/DataTypes.sol";
 import {Errors} from ".../../src/libraries/Errors.sol";
 
 contract AdjustPoolTest is BaseFixture {
-    function test_ReverWhen_NoKeeper() public {
+    function test_RevertWhen_NotKeeper() public {
         address caller = address(54654546);
         vm.prank(caller);
         vm.expectRevert(abi.encodeWithSelector(Errors.NotKeeper.selector, caller));
@@ -37,31 +37,61 @@ contract AdjustPoolTest is BaseFixture {
         roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.DEPOSIT, 2e18));
     }
 
-    function test_When_QueueHasExpiredTxs() public {
-        // 1. queue dummy transfer - external tx
+    function test_When_QueueHasExternalExpiredTxs() public {
+        // 1. queue dummy transfer: external tx
         _transferOutBelowThreshold();
         uint256 txNonceBeforeCleanup = delayModule.txNonce(); // in this case should be `0`
         assertEq(txNonceBeforeCleanup, 0);
 
         (bool canExec, bytes memory execPayload) = roboModule.checkUpkeep("");
-
         assertFalse(canExec);
         assertEq(execPayload, bytes("External transaction in queue, wait for it to be executed"));
 
-        // 2. force queue to expire
+        // 2. force the queued up tx to expire
         skip(COOLDOWN_PERIOD + EXPIRATION_PERIOD + 1);
 
-        // @note that here it is returning `false` but not anymore external tx being queued as blocker
-        // since it is already on expired status
         (canExec, execPayload) = roboModule.checkUpkeep("");
         assertFalse(canExec);
         assertEq(execPayload, bytes("Neither deficit nor surplus; no action needed"));
 
-        // 3. trigger a normal flow (includes cleanup + queuing of a deposit)
+        // 3. queue a normal deposit
         vm.prank(keeper);
         roboModule.performUpkeep(abi.encode(VirtualModule.PoolAction.DEPOSIT, 2e18));
 
-        // asserts the clean up its checked, since it triggered `txNonce++`
+        // confirm that the clean up occurred; it should have triggered `txNonce++`
         assertGt(delayModule.txNonce(), txNonceBeforeCleanup);
+    }
+
+    function test_When_QueueHasInternalExpiredTxs() public {
+        // save the current txNonce on the delay module
+        uint256 delayTxNonceBefore = delayModule.txNonce();
+
+        // make sure our balance is within the buffer
+        _upkeepAndAssertPayload(bytes("Neither deficit nor surplus; no action needed"));
+
+        // deposit enough eure to the card to create a surplus
+        _incomingEure(500e18);
+        uint256 surplus = roboModule.surplus();
+        assertGt(surplus, 0);
+
+        // an upkeep should now result in queueing an internal tx; a deposit of the surplus
+        _upkeepAndAssertPayload(abi.encode(VirtualModule.PoolAction.DEPOSIT, surplus));
+
+        // confirm it got queued up and is now in cooldown
+        _upkeepAndAssertPayload(bytes("Internal transaction in cooldown status"));
+
+        // force the queued up tx to expire
+        skip(COOLDOWN_PERIOD + EXPIRATION_PERIOD + 1);
+
+        // upkeep should now want to try to deposit again since our previous deposit expired
+        _upkeepAndAssertPayload(abi.encode(VirtualModule.PoolAction.DEPOSIT, surplus));
+
+        // this time we will actually exec the deposit
+        vm.warp(block.timestamp + COOLDOWN_PERIOD + 1);
+        _upkeepAndAssertPayload(abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
+
+        // confirm that the delay module triggered `txNonce++` **twice**!
+        // (once for the clean up, and once for the exec of the deposit)
+        assertEq(delayModule.txNonce() - delayTxNonceBefore, 2);
     }
 }

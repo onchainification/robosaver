@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.25;
 
 import {Script} from "forge-std/Script.sol";
@@ -75,7 +75,7 @@ contract GnosisPayInfraDeployment is Script {
         );
 
         // 6. Send LINK to the factory for upkeep registration
-        if (LINK.balanceOf(deployer) > 0) LINK.transfer(address(roboModuleFactory), 4e18);
+        if (LINK.balanceOf(deployer) >= 4e18) LINK.transfer(address(roboModuleFactory), 4e18);
 
         // 7. {Allowance config}
         rolesModule.setAllowance(

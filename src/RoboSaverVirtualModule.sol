@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.25;
 
 import {IMulticall} from "@gnosispay-kit/interfaces/IMulticall.sol";
@@ -224,7 +224,7 @@ contract RoboSaverVirtualModule is
     /// @notice Check if there is a surplus or deficit of $EURe on the card
     /// @return adjustPoolNeeded True if there is a deficit or surplus; false otherwise
     /// @return execPayload The payload of the needed transaction
-    function checkUpkeep(bytes calldata checkData)
+    function checkUpkeep(bytes calldata /* checkData */ )
         external
         view
         override
@@ -233,16 +233,21 @@ contract RoboSaverVirtualModule is
         if (!delayModule.isModuleEnabled(address(this))) return (false, bytes("Virtual module is not enabled"));
 
         /// @dev check if there is a transaction queued up in the delay module by an external entity
-        ///      and it is not yet expired
-        if (_isExternalTxQueued() && !_isCleanQueueRequired()) {
-            return (false, bytes("External transaction in queue, wait for it to be executed"));
+        if (_isExternalTxQueued()) {
+            if (!_isCleanQueueRequired()) {
+                return (false, bytes("External transaction in queue, wait for it to be executed"));
+            } else {
+                /// @dev _adjustPool will clean up the expired tx from the queue; no action needed here
+            }
         }
 
         /// @dev check if there is a transaction queued up in the delay module by the virtual module itself
         if (queuedTx.nonce != 0) {
             /// @notice check if the transaction is still in cooldown or ready to exec
             if (_isInCoolDown(queuedTx.nonce)) return (false, bytes("Internal transaction in cooldown status"));
-            return (true, abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
+            if (!_isCleanQueueRequired()) {
+                return (true, abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
+            }
         }
 
         uint256 bptBalance = BPT_STEUR_EURE.balanceOf(CARD);
@@ -250,26 +255,21 @@ contract RoboSaverVirtualModule is
             return (true, abi.encode(VirtualModule.PoolAction.STAKE, 0));
         }
 
-        uint256 balance = EURE.balanceOf(CARD);
-        (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
-
-        if (balance < dailyAllowance) {
+        if (deficit() > 0) {
             /// @notice there is a deficit; we need to withdraw from the pool
             uint256 stakedBptBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
             if (stakedBptBalance == 0) return (false, bytes("No staked BPT balance on the card"));
 
-            uint256 deficit = dailyAllowance - balance + buffer;
             uint256 withdrawableEure =
                 stakedBptBalance * BPT_STEUR_EURE.getRate() * (MAX_BPS - slippage) / 1e18 / MAX_BPS;
-            if (withdrawableEure < deficit) {
+            if (withdrawableEure < deficit()) {
                 return (true, abi.encode(VirtualModule.PoolAction.CLOSE, withdrawableEure));
             } else {
-                return (true, abi.encode(VirtualModule.PoolAction.WITHDRAW, deficit));
+                return (true, abi.encode(VirtualModule.PoolAction.WITHDRAW, deficit()));
             }
-        } else if (balance > dailyAllowance + buffer) {
+        } else if (surplus() > 0) {
             /// @notice there is a surplus; we need to deposit into the pool
-            uint256 surplus = balance - (dailyAllowance + buffer);
-            return (true, abi.encode(VirtualModule.PoolAction.DEPOSIT, surplus));
+            return (true, abi.encode(VirtualModule.PoolAction.DEPOSIT, surplus()));
         }
 
         /// @notice neither deficit nor surplus; no action needed
@@ -289,6 +289,28 @@ contract RoboSaverVirtualModule is
         uint256 stakedBptBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
         if (stakedBptBalance > 0) {
             _adjustPool(VirtualModule.PoolAction.SHUTDOWN, stakedBptBalance);
+        }
+    }
+
+    /// @notice Retrieve the current deficit on the card
+    /// @return deficit_ The amount of $EURe needed to reach the daily allowance + buffer
+    function deficit() public view returns (uint256 deficit_) {
+        uint256 balance = EURE.balanceOf(CARD);
+        (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
+
+        if (balance < dailyAllowance) {
+            deficit_ = dailyAllowance - balance + buffer;
+        }
+    }
+
+    /// @notice Retrieve the current surplus on the card
+    /// @return surplus_ The amount of $EURe that can be deposited elsewhere
+    function surplus() public view returns (uint256 surplus_) {
+        uint256 balance = EURE.balanceOf(CARD);
+        (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
+
+        if (balance > dailyAllowance + buffer) {
+            surplus_ = balance - (dailyAllowance + buffer);
         }
     }
 
