@@ -9,8 +9,8 @@ import "@balancer-v2/interfaces/contracts/vault/IVault.sol";
 import "@balancer-v2/interfaces/contracts/solidity-utils/misc/IERC4626.sol";
 
 abstract contract RoboSaverConstants {
+    uint8 constant OPERATION_DELEGATECALL = 1;
     uint16 constant MAX_BPS = 10_000;
-
     uint256 constant EURE_TOKEN_BPT_INDEX = 2;
     uint256 constant EURE_TOKEN_BPT_INDEX_USER = 1;
     uint256 constant MODULE_PAGE_SIZE = 1;

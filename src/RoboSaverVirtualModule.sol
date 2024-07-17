@@ -537,8 +537,13 @@ contract RoboSaverVirtualModule is
     /// @param _target The address of the target of the transaction
     /// @param _payload The payload of the transaction
     function _queueTx(address _target, bytes memory _payload) internal {
-        /// @dev since all actions go through multicall3, operation is set to 1 (DelegateCall)
-        delayModule.execTransactionFromModule(_target, 0, _payload, 1);
+        /// @dev the newest action is leading; if we already have a transaction queued up we should skip it
+        if (queuedTx.nonce != 0) {
+            delayModule.setTxNonce(queuedTx.nonce);
+            delete queuedTx;
+        }
+
+        delayModule.execTransactionFromModule(_target, 0, _payload, OPERATION_DELEGATECALL);
         uint256 cachedQueueNonce = delayModule.queueNonce();
         queuedTx = VirtualModule.QueuedTx(cachedQueueNonce, _target, _payload);
 
