@@ -51,7 +51,7 @@ jobs:
           forge build
       - name: Run Forge tests
         run: |
-          forge coverage --report lcov -vvv --no-match-coverage "(script|test)" --skip script
+          make coverage
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -79,5 +79,4 @@ jobs:
       - run: yarn install --cwd lib/delay-module
       - name: Dry run deployment
         run: |
-          touch .env
           make deployDry
