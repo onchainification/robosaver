@@ -29,6 +29,5 @@ contract CornerCaseV0_1_0Test is BaseFixture {
         // @note if it not identical a blockage will be suffer and force to wait for tx expiration
         assertEq(nonceDepositTx, nonceShutdownTx);
         assertEq(payloadDepositTx, payloadShutdownTx);
-
     }
 }
