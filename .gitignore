@@ -15,3 +15,6 @@ docs/
 
 # Codecov
 lcov.info
+
+# Testing
+.gas-snapshot

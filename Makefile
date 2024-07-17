@@ -1,4 +1,4 @@
-include .env
+-include .env
 
 deploy:
 	forge script script/GnosisPayInfraDeployment.s.sol \
@@ -38,3 +38,10 @@ verifyTenderly:
 	--chain gnosis \
 	--via-ir \
 	--watch
+
+coverage:
+	forge coverage \
+	--report lcov \
+	-vvv \
+	--no-match-coverage "(script|test)" \
+	--skip script
