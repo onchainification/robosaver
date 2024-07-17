@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.25;
 
 import {IMulticall} from "@gnosispay-kit/interfaces/IMulticall.sol";
@@ -233,16 +233,21 @@ contract RoboSaverVirtualModule is
         if (!delayModule.isModuleEnabled(address(this))) return (false, bytes("Virtual module is not enabled"));
 
         /// @dev check if there is a transaction queued up in the delay module by an external entity
-        ///      and it is not yet expired
-        if (_isExternalTxQueued() && !_isCleanQueueRequired()) {
-            return (false, bytes("External transaction in queue, wait for it to be executed"));
+        if (_isExternalTxQueued()) {
+            if (!_isCleanQueueRequired()) {
+                return (false, bytes("External transaction in queue, wait for it to be executed"));
+            } else {
+                /// @dev _adjustPool will clean up the expired tx from the queue; no action needed here
+            }
         }
 
         /// @dev check if there is a transaction queued up in the delay module by the virtual module itself
         if (queuedTx.nonce != 0) {
             /// @notice check if the transaction is still in cooldown or ready to exec
             if (_isInCoolDown(queuedTx.nonce)) return (false, bytes("Internal transaction in cooldown status"));
-            return (true, abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
+            if (!_isCleanQueueRequired()) {
+                return (true, abi.encode(VirtualModule.PoolAction.EXEC_QUEUE_POOL_ACTION, 0));
+            }
         }
 
         uint256 bptBalance = BPT_STEUR_EURE.balanceOf(CARD);
@@ -289,6 +294,24 @@ contract RoboSaverVirtualModule is
         uint256 stakedBptBalance = AURA_GAUGE_STEUR_EURE.balanceOf(CARD);
         if (stakedBptBalance > 0) {
             _adjustPool(VirtualModule.PoolAction.SHUTDOWN, stakedBptBalance);
+        }
+    }
+
+    function deficit() external view returns (uint256 deficit_) {
+        uint256 balance = EURE.balanceOf(CARD);
+        (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
+
+        if (balance < dailyAllowance) {
+            deficit_ = dailyAllowance - balance + buffer;
+        }
+    }
+
+    function surplus() external view returns (uint256 surplus_) {
+        uint256 balance = EURE.balanceOf(CARD);
+        (, uint128 dailyAllowance,,,) = rolesModule.allowances(SET_ALLOWANCE_KEY);
+
+        if (balance > dailyAllowance + buffer) {
+            surplus_ = balance - (dailyAllowance + buffer);
         }
     }
 
