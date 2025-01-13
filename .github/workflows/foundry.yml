@@ -24,7 +24,7 @@ jobs:
         run: forge fmt
         id: formatting
       - name: Auto commit
-        uses: stefanzweifel/git-auto-commit-action@v5.0.1
+        uses: stefanzweifel/git-auto-commit-action@v5.1.0
         with:
           commit_message: "style: ci lint `forge fmt`"
 
