@@ -5,7 +5,7 @@ import {BaseFixture} from "../BaseFixture.sol";
 
 import {Errors} from ".../../src/libraries/Errors.sol";
 
-import {RoboSaverVirtualModule} from "../../src/RoboSaverVirtualModule.sol";
+import {IRoboSaverVirtualModule} from "../../src/interfaces/robosaver/IRoboSaverVirtualModule.sol";
 
 contract SettersTest is BaseFixture {
     function test_RevertWhen_BufferZeroValue() public {
@@ -47,7 +47,7 @@ contract SettersTest is BaseFixture {
         uint256 newBuffer = 1000;
 
         vm.expectEmit(true, true, true, true);
-        emit RoboSaverVirtualModule.SetBuffer(roboModule.CARD(), oldBuffer, newBuffer);
+        emit IRoboSaverVirtualModule.SetBuffer(roboModule.CARD(), oldBuffer, newBuffer);
 
         vm.prank(roboModule.CARD());
         roboModule.setBuffer(newBuffer);
@@ -60,7 +60,7 @@ contract SettersTest is BaseFixture {
         address newKeeper = address(0x123);
 
         vm.expectEmit(true, true, true, true);
-        emit RoboSaverVirtualModule.SetKeeper(roboModule.CARD(), oldKeeper, newKeeper);
+        emit IRoboSaverVirtualModule.SetKeeper(roboModule.CARD(), oldKeeper, newKeeper);
 
         vm.prank(roboModule.CARD());
         roboModule.setKeeper(newKeeper);
@@ -73,7 +73,7 @@ contract SettersTest is BaseFixture {
         uint16 newSlippage = 777;
 
         vm.expectEmit(true, true, true, true);
-        emit RoboSaverVirtualModule.SetSlippage(roboModule.CARD(), oldSlippage, newSlippage);
+        emit IRoboSaverVirtualModule.SetSlippage(roboModule.CARD(), oldSlippage, newSlippage);
 
         vm.prank(roboModule.CARD());
         roboModule.setSlippage(newSlippage);

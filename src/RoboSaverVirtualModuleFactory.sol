@@ -6,6 +6,8 @@ import {IKeeperRegistrar} from "./interfaces/chainlink/IKeeperRegistrar.sol";
 import {IDelayModifier} from "@gnosispay-kit/interfaces/IDelayModifier.sol";
 import {IRolesModifier} from "@gnosispay-kit/interfaces/IRolesModifier.sol";
 
+import {IRoboSaverVirtualModuleFactory} from "./interfaces/robosaver/IRoboSaverVirtualModuleFactory.sol";
+
 import {Factory} from "./types/DataTypes.sol";
 import {Errors} from "./libraries/Errors.sol";
 
@@ -17,6 +19,7 @@ import {RoboSaverVirtualModule} from "./RoboSaverVirtualModule.sol";
 /// @author onchainification.xyz
 /// @notice Factory contract creates an unique {RoboSaverVirtualModule} per Gnosis Pay card, and registers it in the Chainlink Keeper Registry
 contract RoboSaverVirtualModuleFactory is
+    IRoboSaverVirtualModuleFactory, // 1 inherited component
     FactoryConstants // 1 inherited component
 {
     /*//////////////////////////////////////////////////////////////////////////
@@ -25,11 +28,6 @@ contract RoboSaverVirtualModuleFactory is
 
     // card -> (module address, upkeep id)
     mapping(address => Factory.VirtualModuleDetails) public virtualModules;
-
-    /*//////////////////////////////////////////////////////////////////////////
-                                       EVENTS
-    //////////////////////////////////////////////////////////////////////////*/
-    event RoboSaverVirtualModuleCreated(address virtualModule, address card, uint256 upkeepId, uint256 timestamp);
 
     /*//////////////////////////////////////////////////////////////////////////
                                      CONSTRUCTOR
